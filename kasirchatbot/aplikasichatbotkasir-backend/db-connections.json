@@ -1,0 +1,47 @@
+[
+  {
+    "name": "nangka_busuk_db",
+    "driver": "mysql",
+    "host": "localhost",
+    "port": 3306,
+    "database": "nangka_busuk_db",
+    "user": "root",
+    "password": ""
+  },
+  {
+    "name": "sate_madura_db",
+    "driver": "mysql",
+    "host": "localhost",
+    "port": 3306,
+    "database": "sate_madura_db",
+    "user": "root",
+    "password": ""
+  },
+  {
+    "name": "perusahaan_profesional_db",
+    "driver": "mysql",
+    "host": "localhost",
+    "port": "3306",
+    "database": "perusahaan_profesional_db",
+    "user": "root",
+    "password": ""
+  },
+  {
+    "name": "ujicoba",
+    "driver": "mysql",
+    "host": "localhost",
+    "port": "3306",
+    "database": "ujicoba",
+    "user": "root",
+    "password": ""
+  },
+  {
+    "name": "catatan_warung",
+    "driver": "mysql",
+    "host": "localhost",
+    "port": 3306,
+    "database": "catatan_warung",
+    "user": "root",
+    "password": ""
+  }
+]

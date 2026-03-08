@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Groq Primary",
+    "provider": "groq",
+    "apiKey": "YOUR_GROQ_API_KEY_HERE",
+    "model": "llama-3.3-70b-versatile",
+    "url": "https://api.groq.com/openai/v1/chat/completions",
+    "enabled": true
+  },
+  {
+    "name": "Gemini Backup",
+    "provider": "gemini",
+    "apiKey": "YOUR_GEMINI_API_KEY_HERE",
+    "model": "gemini-1.5-flash",
+    "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_GEMINI_API_KEY_HERE",
+    "enabled": true
+  }
+]

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "343892476833",
+    "project_id": "chatbot-485313-9590d",
+    "storage_bucket": "chatbot-485313-9590d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:343892476833:android:541c9052027b248b8401e0",
+        "android_client_info": {
+          "package_name": "com.anonymous.aplikasichatbot"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "343892476833-96ba9chne64m0ocadcoo85883mm9s89u.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.anonymous.aplikasichatbot",
+            "certificate_hash": "e7c0c4b651921adb3796c4458eb46ae1fcd02174"
+          }
+        },
+        {
+          "client_id": "343892476833-g175ljg5aeqipsqq9hoq4vop9bge9oev.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAg89z6rS1BoSCyNA-1R0r-IaYvVaKZUfI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "343892476833-g175ljg5aeqipsqq9hoq4vop9bge9oev.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -84,7 +84,7 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
                     <View style={[styles.card, Shadow.lg, { backgroundColor: '#FFF' }]}>
                         <View style={{ alignItems: 'center', marginBottom: Spacing.lg }}>
                             <Image
-                                source={require('../../assets/KasirAja-Main-Logo.png')}
+                                source={require('../../assets/kasiraja_main_logo.png')}
                                 style={{ width: 140, height: 45, resizeMode: 'contain' }}
                             />
                         </View>

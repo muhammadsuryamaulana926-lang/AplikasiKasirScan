@@ -67,7 +67,7 @@ const LoadingScreen: React.FC = () => {
     return (
         <View style={styles.container}>
             <Image
-                source={require('../../assets/KasirAja-Main-Logo.png')}
+                source={require('../../assets/kasiraja_main_logo.png')}
                 style={styles.logo}
                 resizeMode="contain"
             />

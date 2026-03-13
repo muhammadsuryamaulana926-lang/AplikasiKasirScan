@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 const getBaseUrl = () => {
     if (Platform.OS === 'android') {
         // Ganti dengan IP komputer Anda jika menggunakan HP fisik
-        return 'http://192.168.100.103:3001/api';
+        return 'http://10.251.108.102:3001/api';
     }
     return 'http://localhost:3001/api';
 };

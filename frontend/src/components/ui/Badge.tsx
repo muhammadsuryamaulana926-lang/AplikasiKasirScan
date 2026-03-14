@@ -8,9 +8,10 @@ interface BadgeProps {
     variant?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'outline';
     size?: 'sm' | 'md';
     style?: any;
+    textStyle?: any;
 }
 
-const Badge: React.FC<BadgeProps> = ({ text, variant = 'primary', size = 'sm', style }) => {
+const Badge: React.FC<BadgeProps> = ({ text, variant = 'primary', size = 'sm', style, textStyle }) => {
     const { colors } = useApp();
 
     const getColors = () => {
@@ -30,7 +31,7 @@ const Badge: React.FC<BadgeProps> = ({ text, variant = 'primary', size = 'sm', s
 
     return (
         <View style={[styles.badge, { backgroundColor: c.bg, paddingHorizontal: isSmall ? 8 : 12, paddingVertical: isSmall ? 2 : 4 }, style]}>
-            <Text style={[styles.text, { color: c.text, fontSize: isSmall ? FontSize.xs : FontSize.sm }]}>{text}</Text>
+            <Text style={[styles.text, { color: c.text, fontSize: isSmall ? FontSize.xs : FontSize.sm }, textStyle]}>{text}</Text>
         </View>
     );
 };

@@ -94,8 +94,22 @@ module.exports = (data) => {
     // PUT mark notification read
     router.put('/notifications/:id/read', async (req, res) => {
         try {
-            await db.query('UPDATE notifications SET is_read = 1, read_at = NOW() WHERE id = ?', [req.params.id]);
+            if (req.params.id === 'read-all') {
+                await db.query('UPDATE notifications SET is_read = 1, read_at = NOW() WHERE is_read = 0');
+            } else {
+                await db.query('UPDATE notifications SET is_read = 1, read_at = NOW() WHERE id = ?', [req.params.id]);
+            }
             res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
+    // DELETE clear notifications
+    router.delete('/notifications/clear', async (req, res) => {
+        try {
+            await db.query('DELETE FROM notifications WHERE is_read = 1');
+            res.json({ success: true, message: 'Notifikasi lunas dihapus' });
         } catch (err) {
             res.status(500).json({ success: false, error: err.message });
         }

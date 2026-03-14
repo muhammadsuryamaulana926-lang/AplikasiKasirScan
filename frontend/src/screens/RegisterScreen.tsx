@@ -24,6 +24,8 @@ const RegisterScreen: React.FC = ({ navigation }: any) => {
         type: 'error' as 'error' | 'success',
         onOk: undefined as (() => void) | undefined
     });
+    const [step, setStep] = useState<'form' | 'otp'>('form');
+    const [otp, setOtp] = useState('');
 
     const handleRegister = async () => {
         if (!name.trim() || !email.trim() || !password.trim()) {
@@ -39,42 +41,69 @@ const RegisterScreen: React.FC = ({ navigation }: any) => {
 
         setLoading(true);
         try {
-            const payload = {
-                name: name.trim(),
-                email: email.trim(),
-                phone: phone.trim(),
-                password: password,
-                role: 'admin', // Register as Admin/Owner
-                username: email.split('@')[0],
-                isActive: 1
-            };
-
-            const response = await api.post('/employees', payload);
-
-            if (response.data.success) {
+            // Step 1: Request OTP
+            const res = await api.post('/employees/request-otp', { email: email.trim(), type: 'register' });
+            if (res.data.success) {
+                setStep('otp');
                 setAlertModal({
                     visible: true,
-                    title: 'Pendaftaran Berhasil',
-                    message: 'Akun Anda berhasil dibuat. Silakan masuk untuk melanjutkan.',
+                    title: 'OTP Dikirim',
+                    message: 'Silakan cek email Anda untuk kode OTP.',
                     type: 'success',
-                    onOk: () => navigation.navigate('Login')
-                });
-            } else {
-                setAlertModal({
-                    visible: true,
-                    title: 'Pendaftaran Gagal',
-                    message: response.data.error || 'Terjadi kesalahan saat membuat akun.',
-                    type: 'error',
                     onOk: undefined
                 });
             }
         } catch (error: any) {
-            console.error('Register Failed', error);
-            const msg = error.response?.data?.error || 'Gagal membuat akun. Silakan coba lagi.';
+            console.error('OTP Request Failed', error);
             setAlertModal({
                 visible: true,
-                title: 'Pendaftaran Gagal',
-                message: msg,
+                title: 'Gagal',
+                message: error.response?.data?.error || 'Gagal mengirim OTP. Pastikan email valid.',
+                type: 'error',
+                onOk: undefined
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (otp.length < 6) return;
+
+        setLoading(true);
+        try {
+            // Step 2: Verify OTP
+            const verifyRes = await api.post('/employees/verify-otp', { email: email.trim(), code: otp, type: 'register' });
+            
+            if (verifyRes.data.success) {
+                // Step 3: Complete Register
+                const payload = {
+                    name: name.trim(),
+                    email: email.trim(),
+                    phone: phone.trim(),
+                    password: password,
+                    role: 'admin',
+                    username: email.split('@')[0],
+                    isActive: 1
+                };
+
+                const response = await api.post('/employees', payload);
+
+                if (response.data.success) {
+                    setAlertModal({
+                        visible: true,
+                        title: 'Pendaftaran Berhasil',
+                        message: 'Akun Anda berhasil dibuat. Silakan masuk.',
+                        type: 'success',
+                        onOk: () => navigation.navigate('Login')
+                    });
+                }
+            }
+        } catch (error: any) {
+            setAlertModal({
+                visible: true,
+                title: 'Verifikasi Gagal',
+                message: error.response?.data?.error || 'Kode OTP salah.',
                 type: 'error',
                 onOk: undefined
             });
@@ -117,107 +146,137 @@ const RegisterScreen: React.FC = ({ navigation }: any) => {
 
                     {/* Floating Card */}
                     <View style={[styles.card, Shadow.lg, { backgroundColor: '#FFF' }]}>
-                        <Text style={[styles.title, { color: colors.text }]}>Buat Akun</Text>
+                        <Text style={[styles.title, { color: colors.text }]}>{step === 'form' ? 'Buat Akun' : 'Verifikasi Email'}</Text>
 
-                        <View style={styles.formGroup}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>Nama Lengkap</Text>
-                            <View style={[styles.inputContainer, { borderColor: colors.border }]}>
-                                <User size={20} color={colors.textTertiary} />
-                                <TextInput
-                                    style={[styles.input, { color: colors.text }]}
-                                    placeholder="Nama Toko / Pemilik"
-                                    placeholderTextColor={colors.textTertiary}
-                                    value={name}
-                                    onChangeText={setName}
-                                />
-                            </View>
-                        </View>
+                        {step === 'form' ? (
+                            <>
+                                <View style={styles.formGroup}>
+                                    <Text style={[styles.label, { color: colors.textSecondary }]}>Nama Lengkap</Text>
+                                    <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+                                        <User size={20} color={colors.textTertiary} />
+                                        <TextInput
+                                            style={[styles.input, { color: colors.text }]}
+                                            placeholder="Nama Toko / Pemilik"
+                                            placeholderTextColor={colors.textTertiary}
+                                            value={name}
+                                            onChangeText={setName}
+                                        />
+                                    </View>
+                                </View>
 
-                        <View style={styles.formGroup}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>Email</Text>
-                            <View style={[styles.inputContainer, { borderColor: colors.border }]}>
-                                <Mail size={20} color={colors.textTertiary} />
-                                <TextInput
-                                    style={[styles.input, { color: colors.text }]}
-                                    placeholder="nama@email.com"
-                                    placeholderTextColor={colors.textTertiary}
-                                    value={email}
-                                    onChangeText={setEmail}
-                                    autoCapitalize="none"
-                                    keyboardType="email-address"
-                                />
-                            </View>
-                        </View>
+                                <View style={styles.formGroup}>
+                                    <Text style={[styles.label, { color: colors.textSecondary }]}>Email</Text>
+                                    <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+                                        <Mail size={20} color={colors.textTertiary} />
+                                        <TextInput
+                                            style={[styles.input, { color: colors.text }]}
+                                            placeholder="nama@email.com"
+                                            placeholderTextColor={colors.textTertiary}
+                                            value={email}
+                                            onChangeText={setEmail}
+                                            autoCapitalize="none"
+                                            keyboardType="email-address"
+                                        />
+                                    </View>
+                                </View>
 
-                        <View style={styles.formGroup}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>Nomor Telepon</Text>
-                            <View style={[styles.inputContainer, { borderColor: colors.border }]}>
-                                <Phone size={20} color={colors.textTertiary} />
-                                <TextInput
-                                    style={[styles.input, { color: colors.text }]}
-                                    placeholder="08xxxxxxxxxx"
-                                    placeholderTextColor={colors.textTertiary}
-                                    value={phone}
-                                    onChangeText={setPhone}
-                                    keyboardType="phone-pad"
-                                />
-                            </View>
-                        </View>
+                                <View style={styles.formGroup}>
+                                    <Text style={[styles.label, { color: colors.textSecondary }]}>Nomor Telepon</Text>
+                                    <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+                                        <Phone size={20} color={colors.textTertiary} />
+                                        <TextInput
+                                            style={[styles.input, { color: colors.text }]}
+                                            placeholder="08xxxxxxxxxx"
+                                            placeholderTextColor={colors.textTertiary}
+                                            value={phone}
+                                            onChangeText={setPhone}
+                                            keyboardType="phone-pad"
+                                        />
+                                    </View>
+                                </View>
 
-                        <View style={styles.formGroup}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>Kata Sandi</Text>
-                            <View style={[styles.inputContainer, { borderColor: colors.border }]}>
-                                <Lock size={20} color={colors.textTertiary} />
-                                <TextInput
-                                    style={[styles.input, { color: colors.text }]}
-                                    placeholder="Minimal 8 karakter"
-                                    placeholderTextColor={colors.textTertiary}
-                                    value={password}
-                                    onChangeText={setPassword}
-                                    secureTextEntry={!showPassword}
+                                <View style={styles.formGroup}>
+                                    <Text style={[styles.label, { color: colors.textSecondary }]}>Kata Sandi</Text>
+                                    <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+                                        <Lock size={20} color={colors.textTertiary} />
+                                        <TextInput
+                                            style={[styles.input, { color: colors.text }]}
+                                            placeholder="Minimal 8 karakter"
+                                            placeholderTextColor={colors.textTertiary}
+                                            value={password}
+                                            onChangeText={setPassword}
+                                            secureTextEntry={!showPassword}
+                                        />
+                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                            {showPassword ?
+                                                <EyeOff size={20} color={colors.textTertiary} /> :
+                                                <Eye size={20} color={colors.textTertiary} />
+                                            }
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                <View style={{ height: Spacing.md }} />
+
+                                <Button
+                                    title="Daftar Sekarang"
+                                    onPress={handleRegister}
+                                    loading={loading}
+                                    rounded
+                                    size="md"
+                                    style={{ width: '100%', marginTop: Spacing.md }}
                                 />
-                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                                    {showPassword ?
-                                        <EyeOff size={20} color={colors.textTertiary} /> :
-                                        <Eye size={20} color={colors.textTertiary} />
-                                    }
+
+                                {/* Social Login Mockup */}
+                                <View style={styles.dividerContainer}>
+                                    <View style={styles.line} />
+                                    <Text style={styles.orText}>atau daftar dengan</Text>
+                                    <View style={styles.line} />
+                                </View>
+
+                                    <TouchableOpacity style={[styles.socialBtn, Shadow.sm]}>
+                                        <Text style={{ fontWeight: 'bold', color: '#EA4335', fontSize: 18 }}>G</Text>
+                                        <Text style={styles.socialText}>Daftar dengan Google</Text>
+                                    </TouchableOpacity>
+
+                                <Text style={styles.termsText}>
+                                    Dengan mendaftar, Anda menyetujui <Text style={{ color: colors.primary }}>Syarat & Ketentuan</Text> kami.
+                                </Text>
+                            </>
+                        ) : (
+                            <View style={{ alignItems: 'center' }}>
+                                <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: Spacing.xl }}>
+                                    Masukkan 6 digit kode OTP yang kami kirimkan ke email {email}
+                                </Text>
+                                
+                                <View style={[styles.inputContainer, { borderColor: colors.border, width: '100%', justifyContent: 'center' }]}>
+                                    <TextInput
+                                        style={[styles.input, { textAlign: 'center', fontSize: 24, letterSpacing: 10, marginLeft: 0 }]}
+                                        placeholder="000000"
+                                        maxLength={6}
+                                        keyboardType="number-pad"
+                                        value={otp}
+                                        onChangeText={setOtp}
+                                    />
+                                </View>
+
+                                <Button
+                                    title="Verifikasi OTP"
+                                    onPress={handleVerifyOtp}
+                                    loading={loading}
+                                    rounded
+                                    size="md"
+                                    style={{ width: '100%', marginTop: Spacing.xl }}
+                                />
+
+                                <TouchableOpacity 
+                                    onPress={() => setStep('form')}
+                                    style={{ marginTop: Spacing.md }}
+                                >
+                                    <Text style={{ color: colors.primary, fontWeight: FontWeight.bold }}>Ganti Email</Text>
                                 </TouchableOpacity>
                             </View>
-                        </View>
-
-                        <View style={{ height: Spacing.md }} />
-
-                        <Button
-                            title="Daftar Sekarang"
-                            onPress={handleRegister}
-                            loading={loading}
-                            rounded
-                            size="md"
-                            style={{ width: '100%', marginTop: Spacing.md }}
-                        />
-
-                        {/* Social Login Mockup */}
-                        <View style={styles.dividerContainer}>
-                            <View style={styles.line} />
-                            <Text style={styles.orText}>atau daftar dengan</Text>
-                            <View style={styles.line} />
-                        </View>
-
-                        <View style={styles.socialRow}>
-                            <TouchableOpacity style={[styles.socialBtn, Shadow.sm]}>
-                                <Text style={{ fontWeight: 'bold', color: '#EA4335' }}>G</Text>
-                                <Text style={styles.socialText}>Google</Text>
-                            </TouchableOpacity>
-                            <View style={{ width: Spacing.md }} />
-                            <TouchableOpacity style={[styles.socialBtn, Shadow.sm]}>
-                                <Text style={{ fontWeight: 'bold', color: '#1877F2' }}>f</Text>
-                                <Text style={styles.socialText}>Facebook</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={styles.termsText}>
-                            Dengan mendaftar, Anda menyetujui <Text style={{ color: colors.primary }}>Syarat & Ketentuan</Text> kami.
-                        </Text>
+                        )}
                     </View>
 
                     {/* Bottom Link */}
@@ -261,7 +320,7 @@ const RegisterScreen: React.FC = ({ navigation }: any) => {
                         onPress={handleModalClose}
                         style={{ width: '100%' }}
                         rounded
-                        color={alertModal.type === 'success' ? 'success' : 'primary'}
+                        variant={alertModal.type === 'success' ? 'secondary' : 'primary'}
                     />
                 </View>
             </Modal>
@@ -351,11 +410,7 @@ const styles = StyleSheet.create({
         color: '#AAA',
         fontSize: FontSize.xs,
     },
-    socialRow: {
-        flexDirection: 'row',
-    },
     socialBtn: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',

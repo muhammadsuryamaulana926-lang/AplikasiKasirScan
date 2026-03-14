@@ -4,6 +4,7 @@ export interface Product {
     name: string;
     category: string;
     categoryId?: string;
+    categoryName?: string;
     buyPrice: number;
     sellPrice: number;
     stock: number;
@@ -24,6 +25,7 @@ export interface Customer {
     email: string | null;
     loyaltyPoints: number;
     totalSpent: number;
+    totalDebt: number;
     totalTransactions: number;
     joinDate: string;
     lastVisit: string;

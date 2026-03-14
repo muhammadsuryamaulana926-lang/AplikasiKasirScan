@@ -13,7 +13,7 @@ import { Spacing, FontSize, FontWeight, formatRupiah, BorderRadius, Shadow } fro
 import { LoadingSkeleton, EmptyState } from '../components/shared/States';
 import AnimatedView from '../components/shared/AnimatedView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Product } from '../types';
+import { Product, Category } from '../types';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const InputGroup = ({ label, value, onChangeText, keyboardType = 'default', placeholder, colors }: any) => (
@@ -37,9 +37,11 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
     const TAB_BAR_HEIGHT = 70 + (insets.bottom > 0 ? insets.bottom : 10);
     const FLOAT_BOTTOM = TAB_BAR_HEIGHT + 16; // 16px gap di atas tab bar
     const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
     // Modal & Form States
     const [isFormVisible, setIsFormVisible] = useState(false);
@@ -52,22 +54,40 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
         stock: '',
         minStock: '10',
         unit: 'pcs',
-        categoryId: 'cat-1',
+        categoryId: '',
         image: null as string | null,
         expiryDate: null as string | null,
         supplier: '',
     });
 
     const [isScanning, setIsScanning] = useState(false);
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [isSubmittingCategory, setIsSubmittingCategory] = useState(false);
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
     // Alert State
     const [alertState, setAlertState] = useState({ visible: false, title: '', message: '', type: 'info' as 'success' | 'error' });
 
+    const fetchCommonData = useCallback(async () => {
+        try {
+            const catRes = await api.get('/products/categories');
+            setCategories(catRes.data.data || []);
+        } catch (err) {
+            console.error('Fetch categories error:', err);
+        }
+    }, []);
+
     const fetchProducts = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await api.get('/products', { params: { search: searchQuery, limit: 100 } });
+            const res = await api.get('/products', { 
+                params: { 
+                    search: searchQuery, 
+                    category: selectedCategory,
+                    limit: 100 
+                } 
+            });
             setProducts(res.data.data || []);
         } catch (err) {
             console.error(err);
@@ -75,7 +95,11 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [searchQuery]);
+    }, [searchQuery, selectedCategory]);
+
+    useEffect(() => {
+        fetchCommonData();
+    }, [fetchCommonData]);
 
     useEffect(() => {
         fetchProducts();
@@ -104,7 +128,7 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
                 stock: String(product.stock),
                 minStock: String(product.minStock),
                 unit: product.unit,
-                categoryId: product.categoryId || 'cat-1',
+                categoryId: product.categoryId || (categories.length > 0 ? categories[0].id : ''),
                 image: product.image || null,
                 expiryDate: product.expiryDate || null,
                 supplier: product.supplier || '',
@@ -112,7 +136,17 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
         } else {
             setSelectedProduct(null);
             setFormData({
-                name: '', barcode: '', sellPrice: '', buyPrice: '', stock: '', minStock: '10', unit: 'pcs', categoryId: 'cat-1', image: null, expiryDate: null, supplier: '',
+                name: '', 
+                barcode: '', 
+                sellPrice: '', 
+                buyPrice: '', 
+                stock: '', 
+                minStock: '10', 
+                unit: 'pcs', 
+                categoryId: categories.length > 0 ? categories[0].id : '', 
+                image: null, 
+                expiryDate: null, 
+                supplier: '',
             });
         }
         setIsScanning(false);
@@ -200,6 +234,25 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
         setAlertState({ visible: true, title: 'Berhasil', message: `Barcode terscan: ${data}`, type: 'success' });
     };
 
+    const handleCreateCategory = async () => {
+        if (!newCategoryName.trim()) return;
+        try {
+            setIsSubmittingCategory(true);
+            const res = await api.post('/products/categories', { name: newCategoryName });
+            if (res.data.success) {
+                await fetchCommonData();
+                setFormData(prev => ({ ...prev, categoryId: res.data.data.id }));
+                setNewCategoryName('');
+                setIsAddingCategory(false);
+            }
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || 'Gagal menambah kategori.';
+            setAlertState({ visible: true, title: 'Error', message: errorMsg, type: 'error' });
+        } finally {
+            setIsSubmittingCategory(false);
+        }
+    };
+
     const handleSave = async () => {
         // Simple Validation
         if (!formData.name || !formData.sellPrice) {
@@ -259,7 +312,7 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
                     </View>
                     <View style={styles.cardInfo}>
                         <Text style={[styles.cardTitle, { color: colors.text }]}>{item.name}</Text>
-                        <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>{item.barcode || '-'}</Text>
+                        <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>{item.barcode || '-'} • {item.categoryName || 'Tanpa Kategori'}</Text>
                         {item.stock <= item.minStock && (
                             <View style={styles.stockWarning}>
                                 <AlertTriangle size={12} color={colors.danger} />
@@ -284,6 +337,33 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
                     onChangeText={setSearchQuery}
                     placeholder="Cari nama barang atau kode SKU..."
                 />
+                
+                {/* Category Filter */}
+                <View style={styles.categoryFilterContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryFilterScroll}>
+                        <TouchableOpacity 
+                            style={[
+                                styles.filterChip, 
+                                !selectedCategory && { backgroundColor: colors.primary, borderColor: colors.primary }
+                            ]}
+                            onPress={() => setSelectedCategory(null)}
+                        >
+                            <Text style={[styles.filterChipText, !selectedCategory && { color: '#FFF' }]}>Semua</Text>
+                        </TouchableOpacity>
+                        {categories.map(cat => (
+                            <TouchableOpacity 
+                                key={cat.id}
+                                style={[
+                                    styles.filterChip, 
+                                    selectedCategory === cat.id && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                ]}
+                                onPress={() => setSelectedCategory(cat.id)}
+                            >
+                                <Text style={[styles.filterChipText, selectedCategory === cat.id && { color: '#FFF' }]}>{cat.name}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
             </View>
 
             {loading && !refreshing ? (
@@ -346,6 +426,53 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
                 </View>
 
                 <InputGroup colors={colors} label="Nama Produk" value={formData.name} onChangeText={(t: string) => setFormData({ ...formData, name: t })} placeholder="Contoh: Indomie Goreng" />
+
+                <View style={[styles.inputGroup, { marginBottom: Spacing.md }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <Text style={[styles.inputLabel, { color: colors.textSecondary, marginBottom: 0 }]}>Kategori Produk</Text>
+                        <TouchableOpacity 
+                            onPress={() => setIsAddingCategory(true)}
+                            style={{ 
+                                flexDirection: 'row', 
+                                alignItems: 'center', 
+                                gap: 4,
+                                backgroundColor: colors.primary + '10',
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 12
+                            }}
+                        >
+                            <Plus size={12} color={colors.primary} />
+                            <Text style={{ fontSize: 10, fontWeight: 'bold', color: colors.primary }}>Kategori Baru</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {categories.length > 0 ? (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                            {categories.map((cat) => (
+                                <TouchableOpacity
+                                    key={cat.id}
+                                    style={[
+                                        styles.categoryChip,
+                                        { 
+                                            backgroundColor: formData.categoryId === cat.id ? colors.primary : colors.surface,
+                                            borderColor: formData.categoryId === cat.id ? colors.primary : colors.border
+                                        }
+                                    ]}
+                                    onPress={() => setFormData({ ...formData, categoryId: cat.id })}
+                                >
+                                    <Text style={[
+                                        styles.categoryChipText,
+                                        { color: formData.categoryId === cat.id ? '#FFF' : colors.textSecondary }
+                                    ]}>
+                                        {cat.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    ) : (
+                        <Text style={{ fontSize: 10, color: colors.textTertiary, fontStyle: 'italic', marginLeft: 4 }}>Belum ada kategori tersedia</Text>
+                    )}
+                </View>
 
                 <View style={[styles.inputGroup, { marginBottom: Spacing.md }]}>
                     <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Barcode / SKU</Text>
@@ -444,13 +571,63 @@ const InventoryScreen: React.FC = ({ navigation }: any) => {
                 <Text style={{ textAlign: 'center', marginBottom: Spacing.lg, color: colors.textSecondary }}>{alertState.message}</Text>
                 <Button title="Tutup" onPress={() => setAlertState(prev => ({ ...prev, visible: false }))} variant={alertState.type === 'error' ? 'danger' : 'primary'} rounded />
             </Modal>
+
+            {/* Add Category Modal */}
+            <Modal 
+                visible={isAddingCategory} 
+                onClose={() => setIsAddingCategory(false)} 
+                title="Tambah Kategori Baru" 
+                size="sm"
+                type="center"
+            >
+                <View style={{ gap: Spacing.md }}>
+                    <InputGroup 
+                        colors={colors} 
+                        label="Nama Kategori" 
+                        value={newCategoryName} 
+                        onChangeText={setNewCategoryName} 
+                        placeholder="Contoh: Snack, Minuman Dingin" 
+                    />
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: Spacing.sm }}>
+                        <Button 
+                            title="Batal" 
+                            onPress={() => setIsAddingCategory(false)} 
+                            variant="ghost" 
+                            style={{ flex: 1 }}
+                            rounded
+                        />
+                        <Button 
+                            title="Simpan" 
+                            onPress={handleCreateCategory} 
+                            loading={isSubmittingCategory}
+                            style={{ flex: 1 }}
+                            rounded
+                        />
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { padding: Spacing.md, paddingBottom: 0 },
+    header: { padding: Spacing.md, paddingBottom: Spacing.sm },
+    categoryFilterContainer: { marginTop: Spacing.sm },
+    categoryFilterScroll: { gap: 8, paddingHorizontal: 2 },
+    filterChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: BorderRadius.md,
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+    },
+    filterChipText: {
+        fontSize: 11,
+        fontWeight: FontWeight.semibold,
+        color: 'rgba(0,0,0,0.5)',
+    },
     listContent: { padding: Spacing.md },
 
     // Card Styles
@@ -497,6 +674,16 @@ const styles = StyleSheet.create({
         borderWidth: 0.6, // Garis lebih tipis lagi
     },
     rowInputs: { flexDirection: 'row' },
+    categoryChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: BorderRadius.full,
+        borderWidth: 1,
+    },
+    categoryChipText: {
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+    },
     deleteLink: {
         flexDirection: 'row',
         alignItems: 'center',

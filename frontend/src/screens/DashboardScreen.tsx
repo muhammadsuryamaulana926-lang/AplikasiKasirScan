@@ -176,7 +176,7 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
                     <SectionHeader title="Aksi Cepat" />
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionsScroll}>
                         <QuickAction
-                            label="Kasir Baru"
+                            label="Pembeli Baru"
                             icon={<Plus />}
                             color={colors.primary}
                             onPress={() => navigation.navigate('POS')}
@@ -202,13 +202,6 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
                             color={colors.info}
                             onPress={() => navigation.navigate('Debts', { tab: 'customers' })}
                             index={3}
-                        />
-                        <QuickAction
-                            label="Asisten AI"
-                            icon={<MessageCircle />}
-                            color={colors.primary}
-                            onPress={() => navigation.getParent()?.navigate('Assistant')}
-                            index={4}
                         />
                     </ScrollView>
                 </View>

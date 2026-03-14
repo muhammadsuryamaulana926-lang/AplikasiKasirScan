@@ -16,7 +16,7 @@ const Card: React.FC<CardProps> = ({ children, title, subtitle, style, headerRig
     const { colors } = useApp();
 
     return (
-        <View style={[styles.card, Shadow.md, { backgroundColor: colors.card, borderColor: colors.borderLight }, style]}>
+        <View style={[styles.card, Shadow.sm, { backgroundColor: colors.surface }, style]}>
             {(title || headerRight) && (
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
@@ -36,7 +36,7 @@ const Card: React.FC<CardProps> = ({ children, title, subtitle, style, headerRig
 const styles = StyleSheet.create({
     card: {
         borderRadius: BorderRadius.lg,
-        borderWidth: 1,
+        borderWidth: 0,
         overflow: 'hidden',
     },
     header: {

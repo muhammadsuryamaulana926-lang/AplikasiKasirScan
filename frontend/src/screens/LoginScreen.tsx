@@ -7,6 +7,10 @@ import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '../theme';
 import api from '../services/api';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get('window');
 
@@ -17,6 +21,45 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [alertModal, setAlertModal] = useState({ visible: false, title: '', message: '', type: 'error' as 'error' | 'success' });
+
+    /* 
+    // Google Auth Config - Temporarily Disabled
+    const [request, response, promptAsync] = Google.useAuthRequest({
+        webClientId: '172548881799-7rhpaf6urtgb2ueu73os84tdf7f6dk4o.apps.googleusercontent.com',
+        androidClientId: '172548881799-7rhpaf6urtgb2ueu73os84tdf7f6dk4o.apps.googleusercontent.com',
+        iosClientId: '172548881799-7rhpaf6urtgb2ueu73os84tdf7f6dk4o.apps.googleusercontent.com',
+    });
+
+    React.useEffect(() => {
+        if (response?.type === 'success') {
+            const { id_token } = response.params;
+            handleGoogleLogin(id_token);
+        }
+    }, [response]);
+
+    const handleGoogleLogin = async (idToken: string) => {
+        setLoading(true);
+        try {
+            const res = await api.post('/employees/google-login', { idToken });
+            if (res.data.success) {
+                const userData = res.data.data;
+                await AsyncStorage.setItem('userId', userData.id);
+                if (updateUser) await updateUser(userData);
+                if (setIsLoggedIn) setIsLoggedIn(true);
+            }
+        } catch (error: any) {
+            console.error('Google Login Error:', error);
+            setAlertModal({
+                visible: true,
+                title: 'Gagal Login Google',
+                message: error.response?.data?.error || 'Terjadi kesalahan saat login dengan Google',
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+    */
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
@@ -82,13 +125,13 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
 
                     {/* Floating Card */}
                     <View style={[styles.card, Shadow.lg, { backgroundColor: '#FFF' }]}>
-                        <View style={{ alignItems: 'center', marginBottom: Spacing.lg }}>
+                        <View style={{ alignItems: 'center', marginBottom: 0 }}>
                             <Image
-                                source={require('../../assets/kasiraja_main_logo.png')}
-                                style={{ width: 140, height: 45, resizeMode: 'contain' }}
+                                source={require('../../assets/logo_apk.png')}
+                                style={{ width: 220, height: 140, resizeMode: 'contain' }}
                             />
                         </View>
-                        <Text style={[styles.title, { color: colors.text }]}>Masuk</Text>
+                        <Text style={[styles.title, { color: colors.text, marginTop: -15 }]}>Masuk</Text>
 
                         <View style={styles.formGroup}>
                             <Text style={[styles.label, { color: colors.textSecondary }]}>Email</Text>
@@ -145,23 +188,22 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
                         />
 
                         {/* Social Login Mockup */}
+                        {/* 
                         <View style={styles.dividerContainer}>
                             <View style={styles.line} />
                             <Text style={styles.orText}>atau</Text>
                             <View style={styles.line} />
                         </View>
 
-                        <View style={styles.socialRow}>
-                            <TouchableOpacity style={[styles.socialBtn, Shadow.sm]}>
-                                <Text style={{ fontWeight: 'bold', color: '#EA4335' }}>G</Text>
-                                <Text style={styles.socialText}>Google</Text>
-                            </TouchableOpacity>
-                            <View style={{ width: Spacing.md }} />
-                            <TouchableOpacity style={[styles.socialBtn, Shadow.sm]}>
-                                <Text style={{ fontWeight: 'bold', color: '#1877F2' }}>f</Text>
-                                <Text style={styles.socialText}>Facebook</Text>
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity 
+                            style={[styles.socialBtn, Shadow.sm]}
+                            onPress={() => promptAsync()}
+                            disabled={!request}
+                        >
+                            <Text style={{ fontWeight: 'bold', color: '#EA4335', fontSize: 18 }}>G</Text>
+                            <Text style={styles.socialText}>Masuk dengan Google</Text>
+                        </TouchableOpacity>
+                        */}
                     </View>
 
                     {/* Bottom Link */}
@@ -205,7 +247,7 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
                         onPress={() => setAlertModal({ ...alertModal, visible: false })}
                         style={{ width: '100%' }}
                         rounded
-                        color={alertModal.type === 'success' ? 'success' : 'primary'} // Just use primary for close usually
+                        variant={alertModal.type === 'success' ? 'secondary' : 'primary'} 
                     />
                 </View>
             </Modal>
@@ -238,9 +280,9 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.xl,
     },
     card: {
-        borderRadius: 30, // Sangat rounded sesuai referensi
+        borderRadius: 30,
         padding: Spacing.xl,
-        paddingTop: Spacing.xxl,
+        paddingTop: Spacing.md, // Reduced from xxl
         marginTop: 0,
     },
     title: {
@@ -292,11 +334,7 @@ const styles = StyleSheet.create({
         color: '#AAA',
         fontSize: FontSize.xs,
     },
-    socialRow: {
-        flexDirection: 'row',
-    },
     socialBtn: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',

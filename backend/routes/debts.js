@@ -21,7 +21,7 @@ module.exports = (data) => {
                 END as current_status 
                 FROM debts d
                 LEFT JOIN customers c ON d.customer_id = c.id
-                WHERE 1=1`;
+                WHERE d.status != 'paid'`;
             let params = [];
 
             if (search) {
@@ -140,6 +140,16 @@ module.exports = (data) => {
             );
 
             await connection.commit();
+
+            // Check if debt is now paid to send notification
+            const [checkDebt] = await db.query('SELECT status, customer_name, amount FROM debts WHERE id = ?', [debtId]);
+            if (checkDebt[0] && checkDebt[0].status === 'paid') {
+                await db.query(
+                    'INSERT INTO notifications (type, title, message, priority) VALUES (?, ?, ?, ?)',
+                    ['info', 'Hutang Lunas', `Hutang pelanggan "${checkDebt[0].customer_name}" sebesar Rp ${Number(checkDebt[0].amount).toLocaleString('id-ID')} telah lunas.`, 'medium']
+                ).catch(e => console.error("Completion notification failed", e));
+            }
+
             res.json({ success: true, message: 'Pembayaran berhasil dicatat' });
         } catch (err) {
             await connection.rollback();
@@ -147,6 +157,31 @@ module.exports = (data) => {
             res.status(500).json({ success: false, error: err.message });
         } finally {
             connection.release();
+        }
+    });
+
+    // PUT update debt
+    router.put('/:id', async (req, res) => {
+        try {
+            const { amount, notes, dueDate } = req.body;
+            
+            // Get current paid_amount to recalculate remaining
+            const [rows] = await db.query('SELECT paid_amount FROM debts WHERE id = ?', [req.params.id]);
+            if (rows.length === 0) return res.status(404).json({ success: false, error: 'Data hutang tidak ditemukan' });
+            
+            const paidAmount = Number(rows[0].paid_amount);
+            const remaining = (amount !== undefined ? amount : 0) - paidAmount;
+            const status = remaining <= 0 ? 'paid' : (paidAmount > 0 ? 'partial' : 'unpaid');
+
+            await db.query(
+                'UPDATE debts SET amount = COALESCE(?, amount), remaining = ?, notes = COALESCE(?, notes), due_date = COALESCE(?, due_date), status = ? WHERE id = ?',
+                [amount || null, remaining, notes || null, dueDate || null, status, req.params.id]
+            );
+
+            res.json({ success: true, message: 'Data hutang berhasil diperbarui' });
+        } catch (err) {
+            console.error('❌ PUT Debt Error:', err);
+            res.status(500).json({ success: false, error: err.message });
         }
     });
 

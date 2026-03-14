@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert, Dimensions, Modal as NativeModal } from 'react-native';
 import { useApp } from '../store/AppContext';
-import { Camera, Edit2, LogOut, Info, Shield, ChevronRight, Mail, Phone, Calendar, User, Briefcase, CheckCircle, X } from 'lucide-react-native';
+import { Camera, Edit2, LogOut, Info, Shield, ChevronRight, Mail, Phone, Calendar, User, Briefcase, CheckCircle, X, AlertCircle, XCircle } from 'lucide-react-native';
 import { Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '../theme';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
@@ -10,6 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import InputField from '../components/ui/InputField';
+
+const LOGO_APP = require('../../assets/logo_kasir_aja.png');
 
 const { width } = Dimensions.get('window');
 
@@ -23,12 +25,20 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
     const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+    const [showQRISModal, setShowQRISModal] = useState(false);
     const [showFullImage, setShowFullImage] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [alertState, setAlertState] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info' as 'success' | 'error' | 'warning' | 'info'
+    });
 
     // Local state for image feedback
     const [bannerUri, setBannerUri] = useState(user?.banner || null);
     const [avatarUri, setAvatarUri] = useState(user?.avatar || null);
+    const [qrisUri, setQrisUri] = useState(user?.qrisImage || null);
 
     // Local state for profile form
     const [editForm, setEditForm] = useState({
@@ -41,6 +51,7 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
         if (user) {
             setBannerUri(user.banner);
             setAvatarUri(user.avatar);
+            setQrisUri(user.qrisImage);
             setEditForm({
                 name: user.name || '',
                 email: user.email || '',
@@ -49,17 +60,17 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
         }
     }, [user]);
 
-    const pickImage = async (type: 'avatar' | 'banner') => {
+    const pickImage = async (type: 'avatar' | 'banner' | 'qris') => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Izin Ditolak', 'Perlu izin akses galeri untuk mengganti foto.');
+            showAlert('Izin Ditolak', 'Perlu izin akses galeri untuk mengganti foto.', 'error');
             return;
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
-            aspect: type === 'avatar' ? [1, 1] : [16, 9],
+            aspect: type === 'banner' ? [16, 9] : (type === 'avatar' ? [1, 1] : undefined),
             quality: 0.5,
             base64: true,
         });
@@ -67,22 +78,23 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
         if (!result.canceled && result.assets[0].base64) {
             const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
             if (type === 'avatar') setAvatarUri(base64Img);
-            else setBannerUri(base64Img);
+            else if (type === 'banner') setBannerUri(base64Img);
+            else setQrisUri(base64Img);
             handleSaveImage(type, base64Img);
         }
     };
 
-    const handleSaveImage = async (type: 'avatar' | 'banner', uri: string) => {
+    const handleSaveImage = async (type: 'avatar' | 'banner' | 'qris', uri: string) => {
         if (!user?.id) return;
         setUploading(true);
         try {
-            const payload = type === 'avatar' ? { avatar: uri } : { banner: uri };
+            const payload = type === 'avatar' ? { avatar: uri } : type === 'banner' ? { banner: uri } : { qrisImage: uri };
             await api.put(`/employees/${user.id}`, payload);
             await updateUser(payload);
             setShowSuccessModal(true);
         } catch (err) {
             console.error('Update image failed', err);
-            Alert.alert('Gagal', 'Gagal menyimpan perubahan foto.');
+            showAlert('Gagal', 'Gagal menyimpan perubahan foto.', 'error');
         } finally {
             setUploading(false);
         }
@@ -91,7 +103,7 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
     const handleSaveProfileData = async () => {
         if (!user?.id) return;
         if (!editForm.name.trim()) {
-            Alert.alert('Error', 'Nama harus diisi.');
+            showAlert('Error', 'Nama harus diisi.', 'error');
             return;
         }
 
@@ -103,7 +115,7 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
             setShowSuccessModal(true);
         } catch (err) {
             console.error('Update profile data failed', err);
-            Alert.alert('Gagal', 'Gagal menyimpan perubahan profil.');
+            showAlert('Gagal', 'Gagal menyimpan perubahan profil.', 'error');
         } finally {
             setUploading(false);
         }
@@ -116,6 +128,14 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
     const handleConfirmLogout = () => {
         setShowLogoutModal(false);
         if (setIsLoggedIn) setIsLoggedIn(false);
+    };
+
+    const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+        setAlertState({ visible: true, title, message, type });
+    };
+
+    const closeAlert = () => {
+        setAlertState(prev => ({ ...prev, visible: false }));
     };
 
     if (!user) return null;
@@ -164,7 +184,7 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
 
                         <View style={styles.nameSection}>
                             <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
-                            <Text style={[styles.userRole, { color: colors.textSecondary }]}>@{user.username || 'username'} • {user.role}</Text>
+                            <Text style={[styles.userRole, { color: colors.textSecondary }]}>@{user.username || 'username'} • {user.role === 'admin' ? 'Pemilik Warung' : user.role}</Text>
 
                             <TouchableOpacity
                                 onPress={() => setShowEditProfileModal(true)}
@@ -210,7 +230,7 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
                     <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <View style={styles.infoGrid}>
                             <InfoRow icon={<Calendar />} label="Bergabung Sejak" value={new Date(user.createdAt).toLocaleDateString()} />
-                            <InfoRow icon={<Mail />} label="Email" value={user.email} />
+                            <InfoRow icon={<Mail />} label="Email" value={user.email === 'admin' ? 'Pemilik Warung' : user.email} />
                             <InfoRow icon={<Briefcase />} label="Profesi" value="Pemilik Warung" />
                             <InfoRow icon={<Phone />} label="Telepon" value={user.phone} />
                         </View>
@@ -259,8 +279,19 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
                     </View>
                 </AnimatedView>
 
-                {/* Settings */}
                 <AnimatedView delay={400} style={styles.sectionContainer}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Pengaturan Warung</Text>
+                    <View style={styles.settingsList}>
+                        <SettingItem 
+                            icon={<Camera />} 
+                            label="Ubah Barcode QRIS" 
+                            onPress={() => setShowQRISModal(true)} 
+                        />
+                    </View>
+                </AnimatedView>
+
+                {/* Settings */}
+                <AnimatedView delay={500} style={styles.sectionContainer}>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Pengaturan</Text>
                     <View style={styles.settingsList}>
                         <SettingItem icon={<Shield />} label="Privasi & Keamanan" onPress={() => setShowPrivacyModal(true)} />
@@ -382,7 +413,7 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
                 <View style={{ gap: Spacing.md }}>
                     <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: FontSize.md }}>Kebijakan Privasi</Text>
                     <Text style={{ color: colors.textSecondary, lineHeight: 22 }}>
-                        Aplikasi CatatanWarung menghargai privasi Anda. Kami mengumpulkan data minimal yang diperlukan untuk operasional aplikasi, seperti data transaksi dan stok barang.
+                        Aplikasi Kasir Aja menghargai privasi Anda. Kami mengumpulkan data minimal yang diperlukan untuk operasional aplikasi, seperti data transaksi dan stok barang.
                     </Text>
 
                     <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: FontSize.md, marginTop: Spacing.sm }}>Keamanan Data</Text>
@@ -405,20 +436,75 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
                 size="md"
             >
                 <View style={{ alignItems: 'center', marginVertical: Spacing.lg }}>
-                    <View style={{ width: 80, height: 80, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md }}>
-                        {/* App Icon Placeholder */}
-                        <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#FFF' }}>CW</Text>
+                    <View style={{ width: 100, height: 100, borderRadius: 25, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
+                        <Image 
+                            source={LOGO_APP} 
+                            style={{ width: '100%', height: '100%' }} 
+                            resizeMode="contain" 
+                        />
                     </View>
-                    <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>CatatanWarung</Text>
+                    <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold' }}>Kasir Aja</Text>
                     <Text style={{ color: colors.textSecondary, marginBottom: Spacing.lg }}>Versi 1.0.0</Text>
 
                     <Text style={{ color: colors.textSecondary, textAlign: 'center', lineHeight: 22 }}>
-                        Aplikasi manajemen warung modern untuk membantu pencatatan transaksi, stok, dan laporan keuangan Anda menjadi lebih mudah dan efisien.
+                        Aplikasi manajemen kasir modern untuk membantu pencatatan transaksi, stok, dan laporan keuangan Anda menjadi lebih mudah dan efisien.
                     </Text>
 
                     <View style={{ marginTop: Spacing.xl, width: '100%', alignItems: 'center' }}>
-                        <Text style={{ color: colors.textTertiary, fontSize: FontSize.sm }}>Dibuat dengan ❤️ oleh Tim Developer</Text>
-                        <Text style={{ color: colors.textTertiary, fontSize: FontSize.sm }}>© 2024 CatatanWarung Apps</Text>
+                        <Text style={{ color: colors.textTertiary, fontSize: FontSize.sm }}>Dikembangkan oleh Tim Developer</Text>
+                        <Text style={{ color: colors.textTertiary, fontSize: FontSize.sm }}>© 2026 Kasir Aja Apps</Text>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* QRIS Modal */}
+            <Modal
+                visible={showQRISModal}
+                onClose={() => setShowQRISModal(false)}
+                title="Barcode QRIS Warung"
+                size="md"
+            >
+                <View style={{ alignItems: 'center', paddingVertical: Spacing.md }}>
+                    <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: Spacing.lg, fontSize: FontSize.sm }}>
+                        Barcode ini akan ditampilkan kepada pembeli saat mereka memilih metode pembayaran QRIS.
+                    </Text>
+
+                    <View style={{ 
+                        width: width * 0.7, 
+                        height: width * 0.7, 
+                        backgroundColor: colors.surfaceVariant, 
+                        borderRadius: BorderRadius.lg,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        overflow: 'hidden',
+                        marginBottom: Spacing.xl
+                    }}>
+                        {qrisUri ? (
+                            <Image source={{ uri: qrisUri }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+                        ) : (
+                            <View style={{ alignItems: 'center' }}>
+                                <Camera size={48} color={colors.textTertiary} />
+                                <Text style={{ color: colors.textTertiary, marginTop: 8 }}>Belum ada foto</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <View style={{ width: '100%', gap: 12 }}>
+                        <Button 
+                            title={qrisUri ? "Ganti Foto Barcode" : "Upload Foto Barcode"} 
+                            onPress={() => pickImage('qris')}
+                            loading={uploading}
+                            icon={<Camera size={18} color="#FFF" />}
+                            rounded
+                        />
+                        <Button 
+                            title="Tutup" 
+                            onPress={() => setShowQRISModal(false)}
+                            variant="ghost"
+                            rounded
+                        />
                     </View>
                 </View>
             </Modal>
@@ -439,6 +525,22 @@ const MoreScreen: React.FC = ({ navigation }: any) => {
                     />
                 </View>
             </NativeModal>
+
+            {/* Custom Alert Modal */}
+            <Modal visible={alertState.visible} onClose={closeAlert} title={alertState.title} size="sm" type="center">
+                <View style={{ alignItems: 'center', padding: Spacing.md }}>
+                    {alertState.type === 'error' && <XCircle size={48} color={colors.danger} />}
+                    {alertState.type === 'warning' && <AlertCircle size={48} color={colors.warning} />}
+                    {alertState.type === 'success' && <CheckCircle size={48} color={colors.secondary} />}
+                    {alertState.type === 'info' && <Info size={48} color={colors.info} />}
+
+                    <Text style={{ textAlign: 'center', marginTop: Spacing.md, marginBottom: Spacing.lg, color: colors.textSecondary, fontSize: FontSize.md, lineHeight: 22 }}>
+                        {alertState.message}
+                    </Text>
+
+                    <Button title="Tutup" onPress={closeAlert} style={{ width: '100%' }} variant={alertState.type === 'error' ? 'danger' : 'primary'} rounded />
+                </View>
+            </Modal>
         </View>
     );
 };

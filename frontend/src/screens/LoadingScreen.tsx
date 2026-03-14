@@ -67,7 +67,7 @@ const LoadingScreen: React.FC = () => {
     return (
         <View style={styles.container}>
             <Image
-                source={require('../../assets/kasiraja_main_logo.png')}
+                source={require('../../assets/logo_apk.png')}
                 style={styles.logo}
                 resizeMode="contain"
             />
@@ -88,8 +88,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     logo: {
-        width: width * 0.6,
-        height: 100, // Adjust based on aspect ratio
+        width: width * 0.8,
+        height: 180,
         marginBottom: Spacing.xxl,
     },
     loadingContainer: {

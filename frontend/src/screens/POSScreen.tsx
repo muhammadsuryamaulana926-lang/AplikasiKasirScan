@@ -16,7 +16,9 @@ import {
     Info,
     Layers,
     Tag,
-    ChevronDown
+    ChevronDown,
+    Users,
+    QrCode
 } from 'lucide-react-native';
 import { useApp } from '../store/AppContext';
 import api from '../services/api';
@@ -77,7 +79,7 @@ const getCurrentDateTime = () => {
 };
 
 const POSScreen: React.FC = () => {
-    const { colors, addToCart, cart, cartTotal, clearCart, updateCartQty, removeFromCart } = useApp();
+    const { colors, addToCart, cart, cartTotal, clearCart, updateCartQty, removeFromCart, fetchDashboard, user } = useApp();
     const insets = useSafeAreaInsets();
     // Hitung tinggi tab bar dinamis (sama seperti di App.tsx)
     const TAB_BAR_HEIGHT = 70 + (insets.bottom > 0 ? insets.bottom : 10);
@@ -96,6 +98,8 @@ const POSScreen: React.FC = () => {
     const [isCartVisible, setIsCartVisible] = useState(false);
     const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
     const [isSuccessVisible, setIsSuccessVisible] = useState(false);
+    const [isQRISModalVisible, setIsQRISModalVisible] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Custom Alert State
     const [alertState, setAlertState] = useState({
@@ -114,6 +118,12 @@ const POSScreen: React.FC = () => {
     const [isCustomerModalVisible, setIsCustomerModalVisible] = useState(false);
     const [customerSearchQuery, setCustomerSearchQuery] = useState('');
     const [selectionCustomers, setSelectionCustomers] = useState<any[]>([]);
+    const [isAddQuickCustomer, setIsAddQuickCustomer] = useState(false);
+    const [newCustomerName, setNewCustomerName] = useState('');
+    const [newCustomerPhone, setNewCustomerPhone] = useState('');
+    const [newCustomerAddress, setNewCustomerAddress] = useState('');
+    const [addingCustomer, setAddingCustomer] = useState(false);
+    const [customerModalMode, setCustomerModalMode] = useState<'choice' | 'search'>('choice');
 
     const fetchCustomersForSelection = useCallback(async () => {
         try {
@@ -224,34 +234,40 @@ const POSScreen: React.FC = () => {
     }, [products, filterMode, selectedGroup]);
 
     const openCheckout = () => {
+        setCustomerModalMode(selectedCustomer ? 'search' : 'choice');
+        setIsAddQuickCustomer(false);
         setAmountPaid('');
         setPaymentMethod('cash');
-        setTransactionTime(getCurrentDateTime());
         setIsCheckoutVisible(true);
     };
 
     const handleCheckout = async () => {
         if (cart.length === 0) return;
 
-        // Validation for Debt/Partial payment
-        if (paymentMethod === 'credit' && !selectedCustomer) {
-            showAlert('Pilih Penghutang', 'Transaksi hutang wajib memilih nama penghutang agar bisa ditagih.', 'warning');
-            return;
-        }
-
+        // Validation for Partial payment (becomes debt)
         if (paymentMethod === 'cash' && !isPaymentSufficient && !selectedCustomer) {
             showAlert('Pilih Penghutang', 'Uang pembayaran kurang. Silakan pilih penghutang untuk mencatat sisa sebagai hutang.', 'warning');
             return;
         }
 
-        const finalAmountPaid = (paymentMethod === 'cash') ? amountPaidNum : 0;
+        if (paymentMethod === 'qris') {
+            setIsQRISModalVisible(true);
+            return;
+        }
+
+        await processTransaction();
+    };
+
+    const processTransaction = async () => {
+        const finalAmountPaid = (paymentMethod === 'cash') ? amountPaidNum : cartTotal;
         const finalChange = (paymentMethod === 'cash' && isPaymentSufficient) ? (finalAmountPaid - cartTotal) : 0;
-        const debtAmount = (paymentMethod === 'credit') ? cartTotal : (paymentMethod === 'cash' && !isPaymentSufficient ? (cartTotal - finalAmountPaid) : 0);
+        const debtAmount = (paymentMethod === 'cash' && !isPaymentSufficient) ? (cartTotal - finalAmountPaid) : 0;
 
         try {
+            setIsSaving(true);
             const res = await api.post('/transactions', {
                 items: cart,
-                paymentMethod,
+                paymentMethod: paymentMethod, // Uses 'cash' or 'e-wallet' which matches DB ENUM
                 amountPaid: finalAmountPaid,
                 change: finalChange,
                 cashier: 'Kasir Utama',
@@ -273,9 +289,16 @@ const POSScreen: React.FC = () => {
 
             setLastInvoice(res.data?.data?.invoiceNumber || `INV-${Date.now()}`);
             setIsCheckoutVisible(false);
+            setIsQRISModalVisible(false);
+            
+            // Refresh data globally
+            fetchDashboard();
+            
             setTimeout(() => setIsSuccessVisible(true), 500);
         } catch (err) {
             showAlert('Gagal', 'Terjadi kesalahan saat memproses transaksi.', 'error');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -285,6 +308,7 @@ const POSScreen: React.FC = () => {
         clearCart();
         setAmountPaid('');
         setSelectedCustomer(null);
+        setSearchQuery(''); // Clear search to show updated stock
     };
 
     const renderProduct = useCallback(({ item, index }: { item: Product, index: number }) => (
@@ -519,19 +543,25 @@ const POSScreen: React.FC = () => {
                         </View>
                     </View>
 
-                    {/* Pilih Penghutang */}
-                    <Text style={[styles.label, { color: colors.textSecondary, marginTop: Spacing.md }]}>Pembeli / Penghutang</Text>
+                    {/* Pilih Penghutang (Dropdown Style) */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.md }}>
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>Pembeli / Penghutang</Text>
+                        {selectedCustomer && (
+                            <Badge text="STATUS: PENGHUTANG" variant="success" />
+                        )}
+                    </View>
                     <TouchableOpacity
-                        style={[styles.customerSelectBtn, { backgroundColor: colors.surface, borderColor: selectedCustomer ? colors.primary : colors.border }]}
+                        style={[styles.customerSelectBtn, { backgroundColor: colors.surface, borderColor: selectedCustomer ? colors.primary : colors.border, borderLeftWidth: selectedCustomer ? 5 : 1 }]}
                         onPress={() => {
+                            setCustomerModalMode(selectedCustomer ? 'search' : 'choice');
                             fetchCustomersForSelection();
                             setIsCustomerModalVisible(true);
                         }}
                     >
                         <View style={styles.customerSelectInfo}>
                             <User size={18} color={selectedCustomer ? colors.primary : colors.textTertiary} />
-                            <Text style={[styles.customerSelectText, { color: selectedCustomer ? colors.text : colors.textTertiary }]}>
-                                {selectedCustomer ? selectedCustomer.name : 'Pilih Penghutang (Hutang wajib diisi)'}
+                            <Text style={[styles.customerSelectText, { color: selectedCustomer ? colors.text : colors.textTertiary, fontWeight: selectedCustomer ? 'bold' : 'normal' }]}>
+                                {selectedCustomer ? selectedCustomer.name.toUpperCase() : 'Beli Umum (Klik untuk pilih/tambah nama)'}
                             </Text>
                         </View>
                         {selectedCustomer ? (
@@ -543,6 +573,14 @@ const POSScreen: React.FC = () => {
                         )}
                     </TouchableOpacity>
 
+                    {/* Warning if Credit selected but no customer */}
+                    {paymentMethod === 'credit' && !selectedCustomer && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -8, marginBottom: 15 }}>
+                            <AlertCircle size={14} color={colors.danger} />
+                            <Text style={{ color: colors.danger, fontSize: 11, fontWeight: 'bold' }}>Hutang wajib pilih/tambah nama!</Text>
+                        </View>
+                    )}
+
                     {/* Total Belanja */}
                     <View style={styles.checkoutTotalBox}>
                         <Text style={[styles.checkoutTotalLabel, { color: colors.textSecondary }]}>TOTAL BELANJA</Text>
@@ -553,9 +591,7 @@ const POSScreen: React.FC = () => {
                     <Text style={[styles.label, { color: colors.textSecondary }]}>Metode Pembayaran</Text>
                     <View style={styles.paymentGrid}>
                         <PaymentOption active={paymentMethod === 'cash'} icon={<Banknote size={24} color={undefined} />} label="Tunai" onPress={() => setPaymentMethod('cash')} colors={colors} />
-                        <PaymentOption active={paymentMethod === 'transfer'} icon={<CreditCard size={24} color={undefined} />} label="Transfer" onPress={() => setPaymentMethod('transfer')} colors={colors} />
-                        <PaymentOption active={paymentMethod === 'e-wallet'} icon={<Smartphone size={24} color={undefined} />} label="E-Wallet" onPress={() => setPaymentMethod('e-wallet')} colors={colors} />
-                        <PaymentOption active={paymentMethod === 'credit'} icon={<User size={24} color={undefined} />} label="Hutang" onPress={() => setPaymentMethod('credit')} colors={colors} />
+                        <PaymentOption active={paymentMethod === 'qris'} icon={<QrCode size={24} color={undefined} />} label="QRIS" onPress={() => setPaymentMethod('qris')} colors={colors} />
                     </View>
 
                     {/* Input Nominal (hanya untuk tunai) */}
@@ -624,7 +660,8 @@ const POSScreen: React.FC = () => {
                         title="Proses Transaksi"
                         variant="primary"
                         onPress={handleCheckout}
-                        disabled={paymentMethod === 'cash' && !isPaymentSufficient}
+                        loading={isSaving}
+                        disabled={(paymentMethod === 'cash' && !isPaymentSufficient && !selectedCustomer)}
                         style={{ marginTop: Spacing.xl, marginBottom: 20 }}
                         rounded
                         size="lg"
@@ -632,8 +669,83 @@ const POSScreen: React.FC = () => {
                 </ScrollView>
             </Modal>
 
+            {/* QRIS Payment Modal */}
+            <Modal visible={isQRISModalVisible} onClose={() => setIsQRISModalVisible(false)} title="Pembayaran QRIS" size="md">
+                <View style={{ alignItems: 'center', padding: Spacing.md }}>
+                    <Text style={{ fontSize: FontSize.sm, color: colors.textSecondary, textAlign: 'center', marginBottom: Spacing.lg }}>
+                        Silakan scan barcode di bawah ini untuk membayar senilai:
+                    </Text>
+                    
+                    <Text style={{ fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: colors.primary, marginBottom: Spacing.xl }}>
+                        {formatRupiah(cartTotal)}
+                    </Text>
+
+                    <View style={{ 
+                        width: '100%', 
+                        height: 400, 
+                        backgroundColor: '#FFF', 
+                        borderRadius: BorderRadius.xl,
+                        padding: 10,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 12,
+                        elevation: 8,
+                        overflow: 'hidden'
+                    }}>
+                        {/* QRIS Image from User Profile or Placeholder */}
+                        {user?.qrisImage ? (
+                            <Image 
+                                source={{ uri: user.qrisImage }} 
+                                style={{ width: '100%', height: '100%' }} 
+                                resizeMode="contain" 
+                            />
+                        ) : (
+                            <View style={{ alignItems: 'center' }}>
+                                <QrCode size={180} color={colors.text} strokeWidth={1.5} />
+                                <View style={{ 
+                                    marginTop: 20,
+                                    backgroundColor: colors.primary, 
+                                    paddingHorizontal: 20, 
+                                    paddingVertical: 8, 
+                                    borderRadius: 20 
+                                }}>
+                                    <Text style={{ color: '#FFF', fontSize: 12, fontWeight: 'bold' }}>SCAN QRIS</Text>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+
+                    <Text style={{ marginTop: Spacing.xl, fontSize: 11, color: colors.textSecondary, textAlign: 'center', fontStyle: 'italic' }}>
+                        Pastikan pembayaran sudah masuk di HP Anda sebelum menekan tombol konfirmasi.
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: Spacing.xl, width: '100%' }}>
+                        <Button 
+                            title="Batal" 
+                            onPress={() => setIsQRISModalVisible(false)} 
+                            variant="outline" 
+                            style={{ flex: 1 }}
+                            rounded
+                        />
+                        <Button 
+                            title="Konfirmasi" 
+                            onPress={processTransaction} 
+                            loading={isSaving}
+                            variant="primary" 
+                            style={{ flex: 1 }}
+                            rounded
+                        />
+                    </View>
+                </View>
+            </Modal>
+
             {/* Success Modal */}
-            <Modal visible={isSuccessVisible} onClose={handleCloseSuccess} title="" size="md">
+            <Modal visible={isSuccessVisible} onClose={handleCloseSuccess} title="" size="md" type="center">
                 <View style={styles.successContent}>
                     <View style={[styles.successIconBubble, { backgroundColor: colors.secondary + '20' }]}>
                         <CheckCircle size={48} color={colors.secondary} strokeWidth={3} />
@@ -645,7 +757,7 @@ const POSScreen: React.FC = () => {
                         <View style={styles.successInfoRow}>
                             <Text style={{ color: colors.textSecondary }}>Metode</Text>
                             <Text style={{ color: colors.text, fontWeight: FontWeight.bold }}>
-                                {paymentMethod === 'cash' ? 'Tunai' : paymentMethod === 'transfer' ? 'Transfer' : paymentMethod === 'e-wallet' ? 'E-Wallet' : 'Hutang'}
+                                {paymentMethod === 'cash' ? 'Tunai' : 'QRIS'}
                             </Text>
                         </View>
                         <View style={[styles.successDivider, { borderTopColor: colors.border }]} />
@@ -666,56 +778,170 @@ const POSScreen: React.FC = () => {
             </Modal>
 
             {/* Customer Selection Modal */}
-            <Modal visible={isCustomerModalVisible} onClose={() => setIsCustomerModalVisible(false)} title="Pilih Penghutang" size="md">
+            <Modal 
+                visible={isCustomerModalVisible} 
+                onClose={() => setIsCustomerModalVisible(false)} 
+                title={customerModalMode === 'choice' ? 'Tipe Pembeli' : 'Detail Pelanggan'} 
+                size="md"
+            >
                 <View style={{ paddingBottom: 20 }}>
-                    <SearchBar
-                        value={customerSearchQuery}
-                        onChangeText={setCustomerSearchQuery}
-                        placeholder="Cari nama penghutang..."
-                    />
-                    <View style={{ maxHeight: 300, marginTop: Spacing.md }}>
-                        <ScrollView showsVerticalScrollIndicator={false}>
+                    {customerModalMode === 'choice' ? (
+                        <View style={{ gap: 12, paddingVertical: 10 }}>
                             <TouchableOpacity
-                                style={[styles.customerItemOption, { borderBottomColor: colors.border }]}
+                                style={[styles.choiceBtn, { backgroundColor: colors.surfaceVariant, borderColor: !selectedCustomer ? colors.primary : colors.border }]}
                                 onPress={() => {
                                     setSelectedCustomer(null);
                                     setIsCustomerModalVisible(false);
                                 }}
                             >
-                                <Text style={{ color: colors.textSecondary, fontSize: FontSize.sm }}>Pembeli Umum (Tanpa Nama)</Text>
+                                <View style={[styles.choiceIcon, { backgroundColor: !selectedCustomer ? colors.primary : '#FFF' }]}>
+                                    <Users size={24} color={!selectedCustomer ? '#FFF' : colors.textSecondary} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.choiceTitle, { color: colors.text }]}>Pembeli Umum</Text>
+                                    <Text style={[styles.choiceSub, { color: colors.textSecondary }]}>Bayar langsung tanpa nama</Text>
+                                </View>
                             </TouchableOpacity>
-                            {selectionCustomers.map(c => (
-                                <TouchableOpacity
-                                    key={c.id}
-                                    style={[styles.customerItemOption, { borderBottomColor: colors.border }]}
-                                    onPress={() => {
-                                        setSelectedCustomer({ id: c.id, name: c.name, phone: c.phone });
-                                        setIsCustomerModalVisible(false);
-                                    }}
-                                >
-                                    <View>
-                                        <Text style={{ color: colors.text, fontWeight: FontWeight.bold }}>{c.name}</Text>
-                                        <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{c.phone || 'No Phone'}</Text>
+
+                            <TouchableOpacity
+                                style={[styles.choiceBtn, { backgroundColor: colors.surfaceVariant, borderColor: selectedCustomer ? colors.primary : colors.border }]}
+                                onPress={() => setCustomerModalMode('search')}
+                            >
+                                <View style={[styles.choiceIcon, { backgroundColor: selectedCustomer ? colors.primary : '#FFF' }]}>
+                                    <User size={24} color={selectedCustomer ? '#FFF' : colors.textSecondary} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.choiceTitle, { color: colors.text }]}>Hutang / Beridentitas</Text>
+                                    <Text style={[styles.choiceSub, { color: colors.textSecondary }]}>Catat nama untuk langganan atau hutang</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            <SearchBar
+                                value={customerSearchQuery}
+                                onChangeText={setCustomerSearchQuery}
+                                placeholder="Cari nama penghutang..."
+                            />
+                            
+                            {!isAddQuickCustomer ? (
+                                <>
+                                    <View style={{ maxHeight: 250, marginTop: Spacing.md }}>
+                                        <ScrollView showsVerticalScrollIndicator={false}>
+                                            {selectionCustomers.map(c => (
+                                                <TouchableOpacity
+                                                    key={c.id}
+                                                    style={[styles.customerItemOption, { borderBottomColor: colors.border }]}
+                                                    onPress={() => {
+                                                        setSelectedCustomer({ id: c.id, name: c.name, phone: c.phone });
+                                                        setIsCustomerModalVisible(false);
+                                                    }}
+                                                >
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <View>
+                                                            <Text style={{ color: colors.text, fontWeight: FontWeight.bold }}>{c.name}</Text>
+                                                            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{c.phone || 'No Phone'}</Text>
+                                                        </View>
+                                                        {c.totalDebt > 0 && (
+                                                            <View style={{ alignItems: 'flex-end' }}>
+                                                                <Text style={{ fontSize: 9, color: colors.danger, fontWeight: 'bold' }}>HUTANG</Text>
+                                                                <Text style={{ fontSize: 11, color: colors.danger, fontWeight: 'bold' }}>{formatRupiah(c.totalDebt)}</Text>
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                </TouchableOpacity>
+                                            ))}
+                                            {selectionCustomers.length === 0 && customerSearchQuery !== '' && (
+                                                <Text style={{ textAlign: 'center', padding: 20, color: colors.textTertiary }}>Nama tidak ditemukan</Text>
+                                            )}
+                                        </ScrollView>
                                     </View>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                    <Button
-                        title="Tambah Penghutang Baru"
-                        variant="outline"
-                        style={{ marginTop: Spacing.md }}
-                        onPress={() => {
-                            setIsCustomerModalVisible(false);
-                            // Navigate to customers but since we are in modal, maybe just show a simple input? 
-                            // For now let's keep it simple.
-                        }}
-                    />
+                                    
+                                    <View style={{ flexDirection: 'row', gap: 10, marginTop: Spacing.md }}>
+                                        <Button
+                                            title="Kembali"
+                                            variant="outline"
+                                            style={{ flex: 1 }}
+                                            onPress={() => setCustomerModalMode('choice')}
+                                        />
+                                        <Button
+                                            title="Tambah Baru"
+                                            style={{ flex: 2 }}
+                                            onPress={() => setIsAddQuickCustomer(true)}
+                                        />
+                                    </View>
+                                </>
+                            ) : (
+                                <AnimatedView delay={100} style={{ marginTop: Spacing.md, padding: Spacing.md, backgroundColor: colors.surfaceVariant, borderRadius: BorderRadius.lg }}>
+                                    <Text style={[styles.label, { fontSize: FontSize.sm, marginBottom: 10, color: colors.text }]}>Tambah Pelanggan Baru</Text>
+                                    <TextInput
+                                        style={[styles.quickInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                                        placeholder="Nama Lengkap"
+                                        value={newCustomerName}
+                                        onChangeText={setNewCustomerName}
+                                    />
+                                    <TextInput
+                                        style={[styles.quickInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, marginTop: 10 }]}
+                                        placeholder="Nomor HP"
+                                        value={newCustomerPhone}
+                                        onChangeText={setNewCustomerPhone}
+                                        keyboardType="phone-pad"
+                                    />
+                                    <TextInput
+                                        style={[styles.quickInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, marginTop: 10, height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+                                        placeholder="Alamat Lengkap"
+                                        value={newCustomerAddress}
+                                        onChangeText={setNewCustomerAddress}
+                                        multiline
+                                    />
+                                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 15 }}>
+                                        <Button
+                                            title="Batal"
+                                            variant="outline"
+                                            style={{ flex: 1 }}
+                                            onPress={() => setIsAddQuickCustomer(false)}
+                                        />
+                                        <Button
+                                            title={addingCustomer ? "..." : "Simpan"}
+                                            style={{ flex: 1 }}
+                                            onPress={async () => {
+                                                if (!newCustomerName) return showAlert('Nama Wajib', 'Harap isi nama.', 'warning');
+                                                setAddingCustomer(true);
+                                                try {
+                                                    const res = await api.post('/customers', { 
+                                                        name: newCustomerName, 
+                                                        phone: newCustomerPhone || '000000000',
+                                                        address: newCustomerAddress
+                                                    });
+                                                    if (res.data.success) {
+                                                        setSelectedCustomer({ id: res.data.data.id, name: newCustomerName });
+                                                        setIsAddQuickCustomer(false);
+                                                        setIsCustomerModalVisible(false);
+                                                        setNewCustomerName('');
+                                                        setNewCustomerPhone('');
+                                                        setNewCustomerAddress('');
+                                                        setCustomerSearchQuery(''); // Refresh customer list
+                                                        fetchDashboard(); // Trigger dashboard update for customer count
+                                                    }
+                                                } catch (err: any) {
+                                                    const errorMsg = err.response?.data?.error || 'Gagal menambah pelanggan.';
+                                                    showAlert('Gagal', errorMsg, 'error');
+                                                } finally {
+                                                    setAddingCustomer(false);
+                                                }
+                                            }}
+                                            disabled={addingCustomer}
+                                        />
+                                    </View>
+                                </AnimatedView>
+                            )}
+                        </>
+                    )}
                 </View>
             </Modal>
 
             {/* Custom Alert Modal */}
-            <Modal visible={alertState.visible} onClose={closeAlert} title={alertState.title} size="sm">
+            <Modal visible={alertState.visible} onClose={closeAlert} title={alertState.title} size="sm" type="center">
                 <View style={{ alignItems: 'center', padding: Spacing.md }}>
                     {alertState.type === 'error' && <XCircle size={48} color={colors.danger} />}
                     {alertState.type === 'warning' && <AlertCircle size={48} color={colors.warning} />}
@@ -902,6 +1128,36 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         paddingHorizontal: 4,
         borderBottomWidth: 1,
+    },
+    quickInput: {
+        height: 45,
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        fontSize: FontSize.sm,
+    },
+    choiceBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 2,
+        gap: 16,
+    },
+    choiceIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    choiceTitle: {
+        fontSize: FontSize.md,
+        fontWeight: FontWeight.bold,
+    },
+    choiceSub: {
+        fontSize: 11,
+        marginTop: 2,
     },
 });
 

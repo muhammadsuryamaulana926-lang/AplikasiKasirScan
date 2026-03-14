@@ -84,9 +84,18 @@ const CustomersScreen: React.FC = ({ navigation }: any) => {
                     </View>
                 </View>
                 <View style={styles.cardRight}>
-                    <View style={[styles.pointsBadge, { backgroundColor: colors.warning + '15' }]}>
-                        <Star size={12} color={colors.warning} fill={colors.warning} />
-                        <Text style={[styles.pointsText, { color: colors.warning }]}>{item.loyaltyPoints}</Text>
+                    <View style={[
+                        styles.pointsBadge, 
+                        { 
+                            backgroundColor: colors.surface, 
+                            borderWidth: 0,
+                            paddingHorizontal: 0
+                        }
+                    ]}>
+                        <DollarSign size={14} color={Number(item.totalDebt) > 0 ? colors.danger : colors.success} />
+                        <Text style={[styles.pointsText, { color: Number(item.totalDebt) > 0 ? colors.danger : colors.success, fontSize: FontSize.sm }]}>
+                            {Number(item.totalDebt) > 0 ? formatRupiah(item.totalDebt) : 'Lunas'}
+                        </Text>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -203,8 +212,8 @@ const styles = StyleSheet.create({
     cardSubtitle: { fontSize: FontSize.sm },
 
     cardRight: {},
-    pointsBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-    pointsText: { fontSize: 10, fontWeight: FontWeight.bold },
+    pointsBadge: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4, paddingVertical: 2, borderRadius: 8 },
+    pointsText: { fontSize: 9, fontWeight: FontWeight.bold },
 
     fab: { position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', zIndex: 10 },
 

@@ -3,10 +3,10 @@
     "name": "Kasiraja",
     "slug": "aplikasi-catatan-warung",
     "version": "1.0.0",
+    "scheme": "kasiraja",
     "orientation": "portrait",
-    "icon": "./assets/kasiraja_main_logo.png",
+    "icon": "./assets/logo_kasir_aja.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -17,20 +17,23 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/kasiraja_main_logo.png",
+        "foregroundImage": "./assets/logo_kasir_aja.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": false,
       "softwareKeyboardLayoutMode": "adjustResize",
-      "package": "com.botai.aplikasicatatanwarung"
+      "package": "com.suryaaaqqq.aplikasicatatanwarung"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "76c2bdf6-f3a3-4ecc-bef9-60884e0adf3f"
+        "projectId": "107e7763-83ab-414b-9f96-cd2eec64e60b"
       }
-    }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

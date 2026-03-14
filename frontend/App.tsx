@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, ScrollView } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     LayoutDashboard,
@@ -37,9 +37,15 @@ import LoadingScreen from './src/screens/LoadingScreen';
 import TypingText from './src/components/shared/TypingText';
 import ChatbotScreen from './src/screens/ChatbotScreen';
 import ScannerScreen from './src/screens/ScannerScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+
+// Components UI
+import Button from './src/components/ui/Button';
+import Modal from './src/components/ui/Modal';
+import api from './src/services/api';
 
 // Theme - Memakai tema baru
-import { Spacing, FontWeight, BorderRadius, Shadow } from './src/theme';
+import { Spacing, FontSize, FontWeight, BorderRadius, Shadow } from './src/theme';
 
 const Tab = createBottomTabNavigator();
 const MoreStack = createNativeStackNavigator();
@@ -48,16 +54,15 @@ const AuthStack = createNativeStackNavigator();
 
 // Header Modern dengan Avatar dan Notifikasi
 const ModernHeader = ({ title, showBack = false, navigation, isDashboard = false, hideProfile = false }: any) => {
-    const { colors, unreadNotifications, user } = useApp();
+    const { colors, unreadNotifications, notifications, user, fetchDashboard } = useApp();
     const insets = useSafeAreaInsets(); // Safe area for header top padding
-
     return (
         <View style={[styles.headerContainer, { backgroundColor: colors.surface, paddingTop: Math.max(insets.top + 10, 40) }]}>
             <View style={styles.headerLeft}>
                 {showBack && (
                     <TouchableOpacity
                         onPress={() => navigation.goBack()}
-                        style={[styles.backButton, { backgroundColor: colors.surfaceVariant }]}
+                        style={[styles.backButton, { backgroundColor: colors.surface }]}
                     >
                         <ChevronLeft size={24} color={colors.text} />
                     </TouchableOpacity>
@@ -67,9 +72,9 @@ const ModernHeader = ({ title, showBack = false, navigation, isDashboard = false
                     {isDashboard && !showBack && (
                         <TypingText
                             phrases={[
-                                "Selamat datang, Admin!",
+                                `Selamat datang, ${user?.username || 'Bos'}!`,
                                 "Semangat jualan hari ini! 🚀",
-                                "Rezeki lancar, warung berkah!",
+                                "Kelola toko jadi lebih mudah!",
                                 "Pantau stok, jangan sampai kosong.",
                                 "Pelanggan senang, dompet tenang."
                             ]}
@@ -82,10 +87,13 @@ const ModernHeader = ({ title, showBack = false, navigation, isDashboard = false
             </View>
 
             <View style={styles.headerRight}>
-                <TouchableOpacity style={[
-                    styles.iconButton,
-                    { backgroundColor: colors.surfaceVariant }
-                ]}>
+                <TouchableOpacity 
+                    style={[
+                        styles.iconButton,
+                        { backgroundColor: colors.surfaceVariant }
+                    ]}
+                    onPress={() => navigation.navigate('Notifications')}
+                >
                     <Bell size={20} color={colors.text} />
                     {unreadNotifications > 0 && (
                         <View style={[styles.notifBadge, { backgroundColor: colors.danger, borderColor: colors.surface }]}>
@@ -363,6 +371,11 @@ const NavigationWrapper = () => {
                 <RootStack.Navigator screenOptions={{ headerShown: false }}>
                     <RootStack.Screen name="MainTabs" component={MainTabsNavigator} />
                     <RootStack.Screen name="Assistant" component={ChatbotScreen} />
+                    <RootStack.Screen 
+                        name="Notifications" 
+                        component={NotificationsScreen} 
+                        options={{ animation: 'fade_from_bottom' }}
+                    />
                 </RootStack.Navigator>
             )}
         </NavigationContainer>
@@ -462,5 +475,36 @@ const styles = StyleSheet.create({
         height: 6,
         borderRadius: 3,
         marginTop: 6,
+    },
+    // Notification Styles
+    notifItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+    },
+    notifTypeDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+    },
+    notifItemTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 2,
+    },
+    notifItemMsg: {
+        fontSize: 12,
+        lineHeight: 18,
+    },
+    notifItemDate: {
+        fontSize: 10,
+        marginTop: 4,
+    },
+    unreadDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginLeft: 8,
     }
 });

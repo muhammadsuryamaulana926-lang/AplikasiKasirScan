@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Dimensions, Alert } from 'react-native';
-import { FileText, Calendar, Filter, Printer, RotateCcw, Search, ChevronDown, CheckCircle, XCircle, ShoppingBag, ArrowUpRight, ArrowDownLeft } from 'lucide-react-native';
+import { FileText, Calendar, Filter, Printer, RotateCcw, Search, ChevronDown, CheckCircle, XCircle, ShoppingBag, ArrowUpRight, ArrowDownLeft, AlertCircle, Info } from 'lucide-react-native';
 import { useApp } from '../store/AppContext';
 import api from '../services/api';
 import SearchBar from '../components/shared/SearchBar';
@@ -19,6 +19,13 @@ const TransactionsScreen: React.FC = ({ navigation }: any) => {
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTrx, setSelectedTrx] = useState<Transaction | null>(null);
+    const [alertState, setAlertState] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info' as 'success' | 'error' | 'warning' | 'info',
+        onConfirm: null as (() => void) | null
+    });
 
     const fetchTransactions = useCallback(async () => {
         try {
@@ -42,30 +49,31 @@ const TransactionsScreen: React.FC = ({ navigation }: any) => {
         fetchTransactions();
     };
 
+    const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info', onConfirm: (() => void) | null = null) => {
+        setAlertState({ visible: true, title, message, type, onConfirm });
+    };
+
+    const closeAlert = () => {
+        setAlertState(prev => ({ ...prev, visible: false }));
+    };
+
     const handleRefund = async () => {
         if (!selectedTrx) return;
 
-        // Custom Alert Logic here instead of native Alert if possible, but keeping native for destructive action safety
-        Alert.alert(
+        showAlert(
             'Konfirmasi Refund',
             'Apakah Anda yakin? Stok barang akan dikembalikan.',
-            [
-                { text: 'Batal', style: 'cancel' },
-                {
-                    text: 'Refund Sekarang',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await api.put(`/transactions/${selectedTrx.id}/refund`);
-                            fetchTransactions();
-                            setSelectedTrx(null);
-                            Alert.alert('Sukses', 'Transaksi berhasil di-refund.');
-                        } catch (err) {
-                            Alert.alert('Gagal', 'Terjadi kesalahan saat refund.');
-                        }
-                    }
+            'warning',
+            async () => {
+                try {
+                    await api.put(`/transactions/${selectedTrx.id}/refund`);
+                    fetchTransactions();
+                    setSelectedTrx(null);
+                    showAlert('Sukses', 'Transaksi berhasil di-refund.', 'success');
+                } catch (err) {
+                    showAlert('Gagal', 'Terjadi kesalahan saat refund.', 'error');
                 }
-            ]
+            }
         );
     };
 
@@ -93,7 +101,7 @@ const TransactionsScreen: React.FC = ({ navigation }: any) => {
                         </Text>
                         <View style={[styles.statusBadge, { backgroundColor: isRefund ? colors.danger + '15' : colors.info + '15' }]}>
                             <Text style={{ fontSize: 10, fontWeight: 'bold', color: isRefund ? colors.danger : colors.info }}>
-                                {item.paymentMethod ? item.paymentMethod.toUpperCase() : 'CASH'}
+                                {item.paymentMethod === 'cash' ? 'TUNAI' : item.paymentMethod === 'e-wallet' ? 'QRIS' : item.paymentMethod.toUpperCase()}
                             </Text>
                         </View>
                     </View>
@@ -172,7 +180,7 @@ const TransactionsScreen: React.FC = ({ navigation }: any) => {
                                 <Text style={{ color: colors.text, fontWeight: 'bold' }}>{formatRupiah(selectedTrx.total)}</Text>
                             </View>
                             <View style={styles.summaryRow}>
-                                <Text style={{ color: colors.textSecondary }}>Bayar ({selectedTrx.paymentMethod.toUpperCase()})</Text>
+                                <Text style={{ color: colors.textSecondary }}>Bayar ({selectedTrx.paymentMethod === 'cash' ? 'TUNAI' : (selectedTrx.paymentMethod === 'e-wallet' || selectedTrx.paymentMethod === 'qris') ? 'QRIS' : selectedTrx.paymentMethod.toUpperCase()})</Text>
                                 <Text style={{ color: colors.text }}>{formatRupiah(selectedTrx.amountPaid || selectedTrx.total)}</Text>
                             </View>
                             {selectedTrx.change > 0 && (
@@ -188,28 +196,57 @@ const TransactionsScreen: React.FC = ({ navigation }: any) => {
                         </View>
 
                         <View style={styles.actionButtons}>
-                            <Button
-                                title="Cetak Struk"
-                                icon={<Printer size={18} color="#FFF" />}
-                                rounded
-                                style={{ flex: 1 }}
-                            />
                             {selectedTrx.status !== 'refunded' && (
-                                <>
-                                    <View style={{ width: Spacing.md }} />
-                                    <Button
-                                        title="Refund"
-                                        variant="danger"
-                                        icon={<RotateCcw size={18} color="#FFF" />}
-                                        rounded
-                                        style={{ flex: 1 }}
-                                        onPress={handleRefund}
-                                    />
-                                </>
+                                <Button
+                                    title="Refund / Batalkan Transaksi"
+                                    variant="danger"
+                                    icon={<RotateCcw size={18} color="#FFF" />}
+                                    rounded
+                                    style={{ flex: 1 }}
+                                    onPress={handleRefund}
+                                />
                             )}
                         </View>
                     </View>
                 )}
+            </Modal>
+
+            {/* Custom Alert Modal */}
+            <Modal visible={alertState.visible} onClose={closeAlert} title={alertState.title} size="sm" type="center">
+                <View style={{ alignItems: 'center', padding: Spacing.md }}>
+                    {alertState.type === 'error' && <XCircle size={48} color={colors.danger} />}
+                    {alertState.type === 'warning' && <AlertCircle size={48} color={colors.warning} />}
+                    {alertState.type === 'success' && <CheckCircle size={48} color={colors.secondary} />}
+                    {alertState.type === 'info' && <Info size={48} color={colors.info} />}
+
+                    <Text style={{ textAlign: 'center', marginTop: Spacing.md, marginBottom: Spacing.lg, color: colors.textSecondary, fontSize: FontSize.md, lineHeight: 22 }}>
+                        {alertState.message}
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+                        {alertState.onConfirm && (
+                            <Button 
+                                title="Batal" 
+                                onPress={closeAlert} 
+                                style={{ flex: 1 }} 
+                                variant="outline" 
+                                rounded 
+                            />
+                        )}
+                        <Button 
+                            title={alertState.onConfirm ? "Konfirmasi" : "Tutup"} 
+                            onPress={() => {
+                                if (alertState.onConfirm) {
+                                    alertState.onConfirm();
+                                }
+                                closeAlert();
+                            }} 
+                            style={{ flex: 1 }} 
+                            variant={alertState.type === 'error' ? 'danger' : 'primary'} 
+                            rounded 
+                        />
+                    </View>
+                </View>
             </Modal>
         </View>
     );

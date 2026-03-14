@@ -4,7 +4,9 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, Scroll
 import { Mail, ArrowLeft } from 'lucide-react-native';
 import { useApp } from '../store/AppContext';
 import Button from '../components/ui/Button';
+import Modal from '../components/ui/Modal';
 import { Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '../theme';
+import api from '../services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -12,19 +14,57 @@ const ForgotPasswordScreen: React.FC = ({ navigation }: any) => {
     const { colors } = useApp();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
-    const [submitted, setSubmitted] = useState(false);
+    const [step, setStep] = useState<'email' | 'otp' | 'reset'>('email');
+    const [otp, setOtp] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [alertModal, setAlertModal] = useState({ visible: false, title: '', message: '', type: 'error' as 'error' | 'success', onOk: undefined as (() => void) | undefined });
 
-    const handleReset = () => {
+    const handleRequestOtp = async () => {
         if (!email) {
-            Alert.alert("Error", "Mohon masukkan email Anda");
+            setAlertModal({ visible: true, title: 'Error', message: 'Mohon masukkan email Anda', type: 'error', onOk: undefined });
             return;
         }
         setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
+        try {
+            const res = await api.post('/employees/forgot-password', { email: email.trim() });
+            if (res.data.success) {
+                setStep('otp');
+                setAlertModal({ visible: true, title: 'OTP Dikirim', message: 'Cek email Anda untuk kode OTP reset password.', type: 'success', onOk: undefined });
+            }
+        } catch (error: any) {
+            setAlertModal({ visible: true, title: 'Gagal', message: error.response?.data?.error || 'Gagal mengirim OTP. Pastikan email terdaftar.', type: 'error', onOk: undefined });
+        } finally {
             setLoading(false);
-            setSubmitted(true);
-        }, 1500);
+        }
+    };
+
+    const handleResetPassword = async () => {
+        if (otp.length < 6 || !newPassword) {
+            setAlertModal({ visible: true, title: 'Data Belum Lengkap', message: 'Mohon masukkan OTP dan Password baru.', type: 'error', onOk: undefined });
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await api.post('/employees/reset-password', {
+                email: email.trim(),
+                code: otp,
+                newPassword: newPassword
+            });
+            if (res.data.success) {
+                setAlertModal({
+                    visible: true,
+                    title: 'Berhasil',
+                    message: 'Kata sandi berhasil diperbarui. Silakan login kembali.',
+                    type: 'success',
+                    onOk: () => navigation.navigate('Login')
+                });
+            }
+        } catch (error: any) {
+            setAlertModal({ visible: true, title: 'Gagal', message: error.response?.data?.error || 'Gagal meriset password.', type: 'error', onOk: undefined });
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -55,10 +95,10 @@ const ForgotPasswordScreen: React.FC = ({ navigation }: any) => {
                     <View style={[styles.card, Shadow.lg, { backgroundColor: '#FFF' }]}>
                         <Text style={[styles.title, { color: colors.text }]}>Lupa Kata Sandi</Text>
 
-                        {!submitted ? (
+                        {step === 'email' && (
                             <>
                                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                                    Masukkan email yang terdaftar. Kami akan mengirimkan instruksi untuk mereset kata sandi Anda.
+                                    Masukkan email yang terdaftar. Kami akan mengirimkan kode OTP untuk mereset kata sandi Anda.
                                 </Text>
 
                                 <View style={styles.formGroup}>
@@ -78,35 +118,97 @@ const ForgotPasswordScreen: React.FC = ({ navigation }: any) => {
                                 </View>
 
                                 <Button
-                                    title="Kirim Instruksi"
-                                    onPress={handleReset}
+                                    title="Kirim OTP"
+                                    onPress={handleRequestOtp}
                                     loading={loading}
                                     rounded
                                     size="md"
                                     style={{ width: '100%', marginTop: Spacing.md }}
                                 />
                             </>
-                        ) : (
-                            <View style={styles.successContainer}>
-                                <View style={[styles.iconCircle, { backgroundColor: colors.successLight }]}>
-                                    <Mail size={40} color={colors.success} />
-                                </View>
-                                <Text style={[styles.successTitle, { color: colors.text }]}>Cek Email Anda</Text>
-                                <Text style={[styles.successText, { color: colors.textSecondary }]}>
-                                    Kami telah mengirimkan instruksi reset kata sandi ke {email}
+                        )}
+
+                        {step === 'otp' && (
+                            <>
+                                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                                    Masukkan 6 digit kode OTP dan buat kata sandi baru Anda.
                                 </Text>
+
+                                <View style={styles.formGroup}>
+                                    <Text style={[styles.label, { color: colors.textSecondary }]}>Kode OTP</Text>
+                                    <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+                                        <TextInput
+                                            style={[styles.input, { textAlign: 'center', fontSize: 24, letterSpacing: 5, marginLeft: 0 }]}
+                                            placeholder="000000"
+                                            placeholderTextColor={colors.textTertiary}
+                                            value={otp}
+                                            onChangeText={setOtp}
+                                            keyboardType="number-pad"
+                                            maxLength={6}
+                                        />
+                                    </View>
+                                </View>
+
+                                <View style={styles.formGroup}>
+                                    <Text style={[styles.label, { color: colors.textSecondary }]}>Kata Sandi Baru</Text>
+                                    <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+                                        <TextInput
+                                            style={[styles.input, { color: colors.text }]}
+                                            placeholder="Minimal 8 karakter"
+                                            placeholderTextColor={colors.textTertiary}
+                                            value={newPassword}
+                                            onChangeText={setNewPassword}
+                                            secureTextEntry={!showPassword}
+                                        />
+                                    </View>
+                                </View>
+
                                 <Button
-                                    title="Kembali ke Login"
-                                    onPress={() => navigation.navigate('Login')}
+                                    title="Reset Kata Sandi"
+                                    onPress={handleResetPassword}
+                                    loading={loading}
                                     rounded
                                     size="md"
-                                    style={{ width: '100%', marginTop: Spacing.xl }}
+                                    style={{ width: '100%', marginTop: Spacing.md }}
                                 />
-                            </View>
+
+                                <TouchableOpacity onPress={() => setStep('email')} style={{ marginTop: Spacing.md, alignItems: 'center' }}>
+                                    <Text style={{ color: colors.primary, fontWeight: FontWeight.bold }}>Ganti Email</Text>
+                                </TouchableOpacity>
+                            </>
                         )}
                     </View>
                 </ScrollView>
             </View>
+
+            {/* Alert Modal */}
+            <Modal
+                visible={alertModal.visible}
+                onClose={() => {
+                    setAlertModal({ ...alertModal, visible: false });
+                    if (alertModal.onOk) alertModal.onOk();
+                }}
+                size="sm"
+                type="center"
+            >
+                <View style={{ alignItems: 'center', padding: Spacing.lg }}>
+                    <Text style={{ fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: colors.text, marginBottom: 8 }}>
+                        {alertModal.title}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: Spacing.lg }}>
+                        {alertModal.message}
+                    </Text>
+                    <Button
+                        title="OK"
+                        onPress={() => {
+                            setAlertModal({ ...alertModal, visible: false });
+                            if (alertModal.onOk) alertModal.onOk();
+                        }}
+                        style={{ width: '100%' }}
+                        rounded
+                    />
+                </View>
+            </Modal>
         </KeyboardAvoidingView>
     );
 };

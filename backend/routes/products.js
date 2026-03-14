@@ -101,6 +101,25 @@ module.exports = (mockData) => {
         }
     });
 
+    // POST create category
+    router.post('/categories', async (req, res) => {
+        try {
+            const { name, icon, color } = req.body;
+            if (!name) return res.status(400).json({ success: false, error: 'Nama kategori wajib diisi' });
+
+            const id = `cat-${uuidv4().slice(0, 8)}`;
+            await db.query(
+                'INSERT INTO categories (id, name, icon, color) VALUES (?, ?, ?, ?)',
+                [id, name, icon || 'package', color || '#6366f1']
+            );
+
+            res.status(201).json({ success: true, data: { id, name } });
+        } catch (err) {
+            console.error('❌ POST Category Error:', err);
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
+
     // GET single product
     router.get('/:id', async (req, res) => {
         try {

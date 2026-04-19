@@ -120,11 +120,11 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
         }, [fetchDashboard])
     );
 
-    // Live stats from backend
+    const summary = dashboardData?.summary || [];
     const stats = {
-        revenue: dashboardData?.summary?.[0]?.revenue || 0,
-        transactions: dashboardData?.summary?.[0]?.transactions || 0,
-        products: dashboardData?.totalProducts || 0, // Perlu ditambahkan ke view backend atau pakai nilai sementara
+        revenue: summary.reduce((acc: number, s: any) => acc + (s.revenue || 0), 0),
+        transactions: summary.reduce((acc: number, s: any) => acc + (s.transactions || 0), 0),
+        products: dashboardData?.totalProducts || 0,
         lowStock: dashboardData?.lowStockCount || 0,
     };
 

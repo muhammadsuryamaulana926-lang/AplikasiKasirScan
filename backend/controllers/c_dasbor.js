@@ -5,7 +5,7 @@ const { cari_data_dasbor, cari_item_transaksi_dasbor, cari_semua_notifikasi, tan
 const tampil_data_dasbor = async (req, res) => {
     try {
         const ownerId = req.headers['x-owner-id'];
-        const { stats, lowStock, expiring, debts, topCustomers, recentTrxRows, notifications } = await cari_data_dasbor(ownerId);
+        const { stats, lowStock, expiring, debts, totalProducts, topCustomers, recentTrxRows, notifications } = await cari_data_dasbor(ownerId);
 
         // Untuk setiap transaksi terbaru, ambil juga item yang dibeli
         const recentTransactions = await Promise.all(recentTrxRows.map(async (t) => ({
@@ -22,9 +22,10 @@ const tampil_data_dasbor = async (req, res) => {
             data: {
                 // Ringkasan penjualan per hari selama 7 hari terakhir
                 summary: stats.map(s => ({ date: s.date, revenue: Number(s.total_revenue), transactions: s.total_transactions, customers: s.unique_customers })),
-                lowStockCount: lowStock,       // Jumlah produk stok rendah
-                expiringCount: expiring,       // Jumlah produk hampir expired
-                overdueDebtsCount: debts.count, // Jumlah hutang belum lunas
+                lowStockCount: lowStock,
+                expiringCount: expiring,
+                totalProducts: totalProducts,
+                overdueDebtsCount: debts.count,
                 totalDebt: Number(debts.total) || 0, // Total nominal hutang
                 topCustomers: topCustomers.map(c => ({ id: c.id, name: c.name, totalSpent: Number(c.total_spent) })),
                 recentTransactions,

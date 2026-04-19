@@ -11,51 +11,81 @@ import {
     Package,
     CreditCard,
     Bell,
-    User,
+    User,  
     ChevronLeft,
     Search,
     FileText,
-    QrCode
+    QrCode,
+    AlertTriangle,
+    Info,
+    CheckCircle,
+    AlertCircle,
 } from 'lucide-react-native';
 
-// Store
-import { AppProvider, useApp } from './src/store/AppContext';
+// Penyimpanan state global
+import { AppProvider, gunakanApp } from './src/penyimpanan/app_context';
 
-// Screens
-import DashboardScreen from './src/screens/DashboardScreen';
-import POSScreen from './src/screens/POSScreen';
-import InventoryScreen from './src/screens/InventoryScreen';
-import DebtsScreen from './src/screens/DebtsScreen';
-import MoreScreen from './src/screens/MoreScreen';
-// CustomersScreen is now integrated into DebtsScreen
-import TransactionsScreen from './src/screens/TransactionsScreen';
-import ReportsScreen from './src/screens/ReportsScreen';
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
-import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
-import LoadingScreen from './src/screens/LoadingScreen';
-import TypingText from './src/components/shared/TypingText';
-import ChatbotScreen from './src/screens/ChatbotScreen';
-import ScannerScreen from './src/screens/ScannerScreen';
-import NotificationsScreen from './src/screens/NotificationsScreen';
+// Halaman-halaman aplikasi
+import DashboardScreen from './src/pages/lainnya/v_dasbor';
+import POSScreen from './src/pages/transaksi/v_kasir';
+import InventoryScreen from './src/pages/manajemen/v_produk';
+import DebtsScreen from './src/pages/keuangan/v_hutang';
+import MoreScreen from './src/pages/lainnya/v_lainnya';
+import TransactionsScreen from './src/pages/transaksi/v_transaksi';
+import ReportsScreen from './src/pages/keuangan/v_laporan';
+import LoginScreen from './src/pages/auth/v_login';
+import RegisterScreen from './src/pages/auth/v_register';
+import ForgotPasswordScreen from './src/pages/auth/v_forgot_password';
+import LoadingScreen from './src/pages/lainnya/v_loading';
+import TypingText from './src/komponen/umum/c_teks_mengetik';
+import ScannerScreen from './src/pages/transaksi/v_scanner';
 
-// Components UI
-import Button from './src/components/ui/Button';
-import Modal from './src/components/ui/Modal';
-import api from './src/services/api';
+// Komponen antarmuka
+import Button from './src/komponen/antarmuka/c_tombol';
+import Modal from './src/komponen/antarmuka/c_modal';
+import api from './src/layanan/api';
 
-// Theme - Memakai tema baru
-import { Spacing, FontSize, FontWeight, BorderRadius, Shadow } from './src/theme';
+// Tema - Menggunakan tema baru
+import { Spacing, FontSize, FontWeight, BorderRadius, Shadow } from './src/tema';
 
 const Tab = createBottomTabNavigator();
 const MoreStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 
-// Header Modern dengan Avatar dan Notifikasi
+// Header modern dengan avatar dan notifikasi
 const ModernHeader = ({ title, showBack = false, navigation, isDashboard = false, hideProfile = false }: any) => {
-    const { colors, unreadNotifications, notifications, user, fetchDashboard } = useApp();
-    const insets = useSafeAreaInsets(); // Safe area for header top padding
+    const { warna: colors, jumlahBelumDibaca: unreadNotifications, notifikasi: notifications, pengguna: user, ambilNotifikasi, bacaNotifikasi, hapusNotifikasi } = gunakanApp();
+    const insets = useSafeAreaInsets();
+    const [showNotifModal, setShowNotifModal] = React.useState(false);
+
+    const bukaNotifikasi = () => {
+        ambilNotifikasi();
+        setShowNotifModal(true);
+    };
+
+    const getNotifColor = (type: string) => {
+        switch (type) {
+            case 'debt_reminder': return colors.warning;
+            case 'info': return colors.info;
+            case 'success': return colors.success;
+            case 'error': return colors.danger;
+            default: return colors.primary;
+        }
+    };
+
+    // Icon sesuai tipe notifikasi
+    const getNotifIcon = (type: string) => {
+        const color = getNotifColor(type);
+        switch (type) {
+            case 'debt_reminder': return <AlertTriangle size={18} color={color} />;
+            case 'info': return <Info size={18} color={color} />;
+            case 'success': return <CheckCircle size={18} color={color} />;
+            case 'error': return <AlertCircle size={18} color={color} />;
+            default: return <Bell size={18} color={color} />;
+        }
+    };
+
     return (
         <View style={[styles.headerContainer, { backgroundColor: colors.surface, paddingTop: Math.max(insets.top + 10, 40) }]}>
             <View style={styles.headerLeft}>
@@ -87,27 +117,20 @@ const ModernHeader = ({ title, showBack = false, navigation, isDashboard = false
             </View>
 
             <View style={styles.headerRight}>
-                <TouchableOpacity 
-                    style={[
-                        styles.iconButton,
-                        { backgroundColor: colors.surfaceVariant }
-                    ]}
-                    onPress={() => navigation.navigate('Notifications')}
+                {/* Tombol lonceng notifikasi */}
+                <TouchableOpacity
+                    style={[styles.iconButton, { backgroundColor: colors.surfaceVariant }]}
+                    onPress={bukaNotifikasi}
                 >
                     <Bell size={20} color={colors.text} />
                     {unreadNotifications > 0 && (
-                        <View style={[styles.notifBadge, { backgroundColor: colors.danger, borderColor: colors.surface }]}>
-                            <Text style={styles.notifBadgeText}>{unreadNotifications}</Text>
-                        </View>
+                        <View style={[styles.notifBadge, { backgroundColor: colors.danger, borderColor: colors.surface }]} />
                     )}
                 </TouchableOpacity>
 
                 {!hideProfile && (
                     <TouchableOpacity
-                        style={[
-                            styles.avatarButton,
-                            { borderColor: colors.primary }
-                        ]}
+                        style={[styles.avatarButton, { borderColor: colors.primary }]}
                         onPress={() => navigation.navigate('More')}
                     >
                         {user?.avatar ? (
@@ -120,6 +143,128 @@ const ModernHeader = ({ title, showBack = false, navigation, isDashboard = false
                     </TouchableOpacity>
                 )}
             </View>
+
+            {/* Modal Notifikasi */}
+            <Modal visible={showNotifModal} onClose={() => setShowNotifModal(false)} title="Notifikasi" size="lg">
+                <View>
+                    {/* Tombol aksi baris atas */}
+                    {notifications.length > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginBottom: Spacing.md }}>
+                            {unreadNotifications > 0 && (
+                                <TouchableOpacity
+                                    onPress={() => bacaNotifikasi('read-all')}
+                                    style={{
+                                        paddingHorizontal: Spacing.md,
+                                        paddingVertical: 6,
+                                        borderRadius: BorderRadius.full,
+                                        backgroundColor: colors.primary + '15',
+                                        borderWidth: 1,
+                                        borderColor: colors.primary + '30',
+                                    }}
+                                >
+                                    <Text style={{ fontSize: FontSize.xs, color: colors.primary, fontWeight: FontWeight.bold }}>Tandai Semua Dibaca</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                                onPress={hapusNotifikasi}
+                                style={{
+                                    paddingHorizontal: Spacing.md,
+                                    paddingVertical: 6,
+                                    borderRadius: BorderRadius.full,
+                                    backgroundColor: colors.danger + '10',
+                                    borderWidth: 1,
+                                    borderColor: colors.danger + '30',
+                                }}
+                            >
+                                <Text style={{ fontSize: FontSize.xs, color: colors.danger, fontWeight: FontWeight.bold }}>Hapus Dibaca</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {/* Daftar notifikasi */}
+                    {notifications.length === 0 ? (
+                        <View style={{ alignItems: 'center', paddingVertical: Spacing.xxl * 2 }}>
+                            <View style={{
+                                width: 72, height: 72, borderRadius: 36,
+                                backgroundColor: colors.surfaceVariant,
+                                alignItems: 'center', justifyContent: 'center',
+                                marginBottom: Spacing.md,
+                            }}>
+                                <Bell size={32} color={colors.textTertiary} />
+                            </View>
+                            <Text style={{ color: colors.text, fontWeight: FontWeight.bold, fontSize: FontSize.md }}>Tidak ada notifikasi</Text>
+                            <Text style={{ color: colors.textSecondary, fontSize: FontSize.sm, marginTop: 4 }}>Semua sudah terbaca</Text>
+                        </View>
+                    ) : (
+                        notifications.map((notif: any, idx: number) => (
+                            <TouchableOpacity
+                                key={notif.id}
+                                onPress={() => !notif.isRead && bacaNotifikasi(notif.id)}
+                                activeOpacity={0.7}
+                                style={[
+                                    {
+                                        flexDirection: 'row',
+                                        alignItems: 'flex-start',
+                                        paddingVertical: Spacing.md,
+                                        paddingHorizontal: Spacing.sm,
+                                        borderRadius: BorderRadius.lg,
+                                        marginBottom: Spacing.sm,
+                                        backgroundColor: notif.isRead ? colors.surfaceVariant + '60' : colors.primary + '08',
+                                        borderWidth: 1,
+                                        borderColor: notif.isRead ? colors.border : colors.primary + '20',
+                                    },
+                                    !notif.isRead && Shadow.sm,
+                                ]}
+                            >
+                                {/* Icon tipe notifikasi */}
+                                <View style={{
+                                    width: 40, height: 40, borderRadius: 20,
+                                    backgroundColor: getNotifColor(notif.type) + '15',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    marginRight: Spacing.md, flexShrink: 0,
+                                }}>
+                                    {getNotifIcon(notif.type)}
+                                </View>
+
+                                {/* Konten notifikasi */}
+                                <View style={{ flex: 1 }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                                        <Text style={{
+                                            fontSize: FontSize.sm,
+                                            fontWeight: FontWeight.bold,
+                                            color: colors.text,
+                                            flex: 1,
+                                        }} numberOfLines={1}>{notif.title}</Text>
+                                        {!notif.isRead && (
+                                            <View style={{
+                                                width: 8, height: 8, borderRadius: 4,
+                                                backgroundColor: colors.primary,
+                                                marginLeft: Spacing.sm,
+                                            }} />
+                                        )}
+                                    </View>
+                                    <Text style={{
+                                        fontSize: FontSize.xs,
+                                        color: colors.textSecondary,
+                                        lineHeight: 18,
+                                        marginBottom: 4,
+                                    }} numberOfLines={2}>{notif.message}</Text>
+                                    <Text style={{
+                                        fontSize: 10,
+                                        color: colors.textTertiary,
+                                        fontWeight: FontWeight.medium,
+                                    }}>
+                                        {new Date(notif.createdAt).toLocaleString('id-ID', {
+                                            day: 'numeric', month: 'short',
+                                            hour: '2-digit', minute: '2-digit'
+                                        })}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))
+                    )}
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -127,7 +272,7 @@ const ModernHeader = ({ title, showBack = false, navigation, isDashboard = false
 
 
 const MoreStackNavigator = () => {
-    const { colors } = useApp();
+    const { warna: colors } = gunakanApp();
     return (
         <MoreStack.Navigator
             screenOptions={{
@@ -147,7 +292,7 @@ const AuthStackNavigator = () => {
         <AuthStack.Navigator
             screenOptions={{
                 headerShown: false,
-                animation: 'fade_from_bottom', // Animasi halus dari bawah untuk auth
+                animation: 'fade_from_bottom', // Animasi halus dari bawah untuk autentikasi
             }}
         >
             <AuthStack.Screen name="Login" component={LoginScreen} />
@@ -157,10 +302,10 @@ const AuthStackNavigator = () => {
     );
 };
 
-// Custom Tab Bar Button
+// Tombol tab bar kustom
 const TabBarButton = ({ children, onPress, accessibilityState, ...props }: any) => {
-    const { colors } = useApp();
-    // Gunakan optional chaining (?.) untuk mencegah error jika accessibilityState undefined
+    const { warna: colors } = gunakanApp();
+    // Gunakan optional chaining (?.) agar tidak error jika accessibilityState kosong
     const isSelected = accessibilityState?.selected;
 
     if (isSelected) {
@@ -171,7 +316,7 @@ const TabBarButton = ({ children, onPress, accessibilityState, ...props }: any) 
                 style={[
                     styles.tabButton,
                     styles.tabButtonFocused,
-                    { backgroundColor: colors.primary + '15' } // Orange tint background
+                    { backgroundColor: colors.primary + '15' } // Latar bernuansa oranye
                 ]}
             >
                 {children}
@@ -191,7 +336,7 @@ const TabBarButton = ({ children, onPress, accessibilityState, ...props }: any) 
 }
 
 const MainTabsNavigator = () => {
-    const { colors } = useApp();
+    const { warna: colors } = gunakanApp();
     const insets = useSafeAreaInsets();
     const TAB_BAR_HEIGHT = 70 + (insets.bottom > 0 ? insets.bottom : 10);
 
@@ -300,7 +445,7 @@ const MainTabsNavigator = () => {
                                 justifyContent: 'center',
                                 alignItems: 'center',
                                 borderWidth: 4,
-                                borderColor: colors.surface, // Creating a cutout effect
+                                borderColor: colors.surface, // Membuat efek potongan
                                 shadowColor: colors.primary,
                                 shadowOffset: { width: 0, height: 4 },
                                 shadowOpacity: 0.4,
@@ -357,7 +502,7 @@ const MainTabsNavigator = () => {
 };
 
 const NavigationWrapper = () => {
-    const { colors, isLoggedIn, isLoadingAuth } = useApp();
+    const { warna: colors, sudahMasuk: isLoggedIn, prosesAuthMemuat: isLoadingAuth } = gunakanApp();
 
     if (isLoadingAuth) {
         return <LoadingScreen />;
@@ -370,12 +515,7 @@ const NavigationWrapper = () => {
             ) : (
                 <RootStack.Navigator screenOptions={{ headerShown: false }}>
                     <RootStack.Screen name="MainTabs" component={MainTabsNavigator} />
-                    <RootStack.Screen name="Assistant" component={ChatbotScreen} />
-                    <RootStack.Screen 
-                        name="Notifications" 
-                        component={NotificationsScreen} 
-                        options={{ animation: 'fade_from_bottom' }}
-                    />
+                    
                 </RootStack.Navigator>
             )}
         </NavigationContainer>
@@ -396,14 +536,14 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-    // Header Styles
+    // Gaya header
     headerContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Spacing.xl,
         paddingBottom: Spacing.lg,
-        borderBottomLeftRadius: BorderRadius.xl, // Rounded header bottom
+        borderBottomLeftRadius: BorderRadius.xl, // Sudut bawah header melengkung
         borderBottomRightRadius: BorderRadius.xl,
         ...Shadow.sm,
         zIndex: 10,
@@ -421,7 +561,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     headerTitle: {
-        fontSize: 22, // Jhotpot style large title
+        fontSize: 22, // Judul besar gaya modern
         fontWeight: FontWeight.bold,
         letterSpacing: -0.5,
     },
@@ -437,14 +577,14 @@ const styles = StyleSheet.create({
     iconButton: {
         width: 40,
         height: 40,
-        borderRadius: 12, // More rounded square
+        borderRadius: 12, // Kotak lebih melengkung
         alignItems: 'center',
         justifyContent: 'center',
     },
     avatarButton: {
         width: 40,
         height: 40,
-        borderRadius: 14, // Rounded square avatar
+        borderRadius: 14, // Avatar kotak melengkung
         overflow: 'hidden',
         borderWidth: 2,
     },
@@ -458,17 +598,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     notifBadgeText: {
-        display: 'none' // Just show dot for minimal look
+        display: 'none' // Tampilkan titik saja untuk tampilan minimal
     },
 
-    // Tab Bar Styles
+    // Gaya tab bar
     tabButton: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
     },
     tabButtonFocused: {
-        // Optional active state background
+        // Latar opsional saat aktif
     },
     activeDot: {
         width: 6,
@@ -476,7 +616,7 @@ const styles = StyleSheet.create({
         borderRadius: 3,
         marginTop: 6,
     },
-    // Notification Styles
+    // Gaya notifikasi
     notifItem: {
         flexDirection: 'row',
         alignItems: 'center',

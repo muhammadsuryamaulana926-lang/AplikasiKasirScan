@@ -2,11 +2,10 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../database/db');
 const { cari_semua_transaksi, cari_item_transaksi, simpan_transaksi, simpan_item_transaksi } = require('../models/m_transaksi');
 
-// Menangani request GET semua transaksi
-// Memanggil model untuk ambil data lalu format ulang ke camelCase untuk frontend
 const tampil_semua_transaksi = async (req, res) => {
     try {
-        const { rows, total, p, l } = await cari_semua_transaksi(req.query);
+        const ownerId = req.headers['x-owner-id'];
+        const { rows, total, p, l } = await cari_semua_transaksi({ ...req.query, ownerId });
 
         // Untuk setiap transaksi, ambil juga daftar item yang dibeli
         const data = await Promise.all(rows.map(async (r) => ({
@@ -42,6 +41,7 @@ const buat_transaksi_baru = async (req, res) => {
     try {
         await connection.beginTransaction();
 
+        const ownerId = req.headers['x-owner-id'];
         const { customerId, customerName, items, paymentMethod, amountPaid, discount = 0, notes = '', cashier = 'Admin' } = req.body;
 
         // Validasi keranjang tidak boleh kosong
@@ -56,7 +56,7 @@ const buat_transaksi_baru = async (req, res) => {
         const invoice = `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
         // Simpan header transaksi
-        await simpan_transaksi(connection, { id, invoice, customerId, customerName, subtotal, discount, total, paymentMethod, amountPaid, change: Number(amountPaid) - total, cashier, notes });
+        await simpan_transaksi(connection, { id, invoice, customerId, customerName, subtotal, discount, total, paymentMethod, amountPaid, change: Number(amountPaid) - total, cashier, notes, ownerId });
 
         // Simpan setiap item transaksi satu per satu
         for (const item of items) {

@@ -2,10 +2,10 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../database/db');
 const { cari_semua_hutang, cari_ringkasan_hutang, simpan_hutang_baru, simpan_pembayaran_hutang, cek_status_hutang, ubah_data_hutang, tandai_pengingat_hutang } = require('../models/m_hutang');
 
-// Menangani request GET semua hutang yang belum lunas
 const tampil_semua_hutang = async (req, res) => {
     try {
-        const { rows, total, p, l } = await cari_semua_hutang(req.query);
+        const ownerId = req.headers['x-owner-id'];
+        const { rows, total, p, l } = await cari_semua_hutang({ ...req.query, ownerId });
 
         // Format ulang kolom snake_case dari database ke camelCase untuk frontend
         const data = rows.map(r => ({
@@ -53,12 +53,12 @@ const tampil_ringkasan_hutang = async (req, res) => {
     }
 };
 
-// Menangani request POST membuat catatan hutang baru
 const buat_hutang_baru = async (req, res) => {
     try {
+        const ownerId = req.headers['x-owner-id'];
         const id = `debt-${uuidv4().slice(0, 8)}`;
         const { customerId, customerName, amount, items, dueDate, transactionId, notes } = req.body;
-        await simpan_hutang_baru({ id, customerId, customerName, amount, items, dueDate, transactionId, notes });
+        await simpan_hutang_baru({ id, customerId, customerName, amount, items, dueDate, transactionId, notes, ownerId });
         res.status(201).json({ success: true, data: { id, customerName, amount } });
     } catch (err) {
         console.error('❌ buat_hutang_baru Error:', err);

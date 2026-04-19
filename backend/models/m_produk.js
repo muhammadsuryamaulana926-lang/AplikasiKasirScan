@@ -2,12 +2,13 @@ const db = require('../database/db');
 
 // Mengambil semua produk aktif dengan filter, sorting, dan pagination
 const cari_semua_produk = async (filters) => {
-    const { search, category, lowStock, expiringSoon, sort, page = 1, limit = 20 } = filters;
+    const { search, category, lowStock, expiringSoon, sort, page = 1, limit = 20, ownerId } = filters;
     const p = parseInt(page), l = parseInt(limit), offset = (p - 1) * l;
 
-    // Join dengan tabel categories untuk mendapatkan nama kategori
     let query = 'SELECT p.*, c.name as categoryName FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.is_active = 1';
     let params = [];
+
+    if (ownerId) { query += ' AND p.owner_id = ?'; params.push(ownerId); }
 
     // Filter pencarian berdasarkan nama atau barcode produk
     if (search) { query += ' AND (p.name LIKE ? OR p.barcode LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
@@ -46,25 +47,25 @@ const cari_satu_produk = async (id) => {
     return rows[0];
 };
 
-// Mengambil semua kategori produk diurutkan alfabetis
-const cari_semua_kategori = async () => {
-    const [rows] = await db.query('SELECT * FROM categories ORDER BY name ASC');
+const cari_semua_kategori = async (ownerId) => {
+    let query = 'SELECT * FROM categories WHERE 1=1';
+    const params = [];
+    if (ownerId) { query += ' AND owner_id = ?'; params.push(ownerId); }
+    query += ' ORDER BY name ASC';
+    const [rows] = await db.query(query, params);
     return rows;
 };
 
-// Menyimpan kategori produk baru ke database
-const simpan_kategori_baru = async (id, data) => {
+const simpan_kategori_baru = async (id, data, ownerId) => {
     const { name, icon, color } = data;
-    // Gunakan icon dan warna default jika tidak diisi
-    await db.query('INSERT INTO categories (id, name, icon, color) VALUES (?, ?, ?, ?)', [id, name, icon || 'package', color || '#6366f1']);
+    await db.query('INSERT INTO categories (id, name, icon, color, owner_id) VALUES (?, ?, ?, ?, ?)', [id, name, icon || 'package', color || '#6366f1', ownerId || null]);
 };
 
-// Menyimpan produk baru ke database
-const simpan_produk_baru = async (id, data) => {
+const simpan_produk_baru = async (id, data, ownerId) => {
     const { barcode, name, categoryId, buyPrice, sellPrice, stock, minStock, unit, image, expiryDate, supplier } = data;
     await db.query(
-        'INSERT INTO products (id, barcode, name, category_id, buy_price, sell_price, stock, min_stock, unit, image, expiry_date, supplier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, barcode || '', name || '', categoryId || null, Number(buyPrice) || 0, Number(sellPrice) || 0, Number(stock) || 0, Number(minStock) || 0, unit || 'pcs', image || null, expiryDate || null, supplier || null]
+        'INSERT INTO products (id, barcode, name, category_id, buy_price, sell_price, stock, min_stock, unit, image, expiry_date, supplier, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, barcode || '', name || '', categoryId || null, Number(buyPrice) || 0, Number(sellPrice) || 0, Number(stock) || 0, Number(minStock) || 0, unit || 'pcs', image || null, expiryDate || null, supplier || null, ownerId || null]
     );
 };
 

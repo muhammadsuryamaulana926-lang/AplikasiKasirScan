@@ -141,8 +141,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Hapus sesi dan data pengguna saat logout
                 await AsyncStorage.removeItem('sesiPengguna');
                 await AsyncStorage.removeItem('idPengguna');
-                await AsyncStorage.removeItem('userId'); // hapus key lama juga
+                await AsyncStorage.removeItem('userId');
+                // Reset semua state agar data user lama tidak terbawa ke user berikutnya
                 setPengguna(null);
+                setDataDasbor(null);
+                setNotifikasi([]);
+                setKeranjang([]);
             }
         } catch (error) {
             console.error('Gagal memperbarui penyimpanan sesi', error);
@@ -282,9 +286,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // ─── PERBARUI DATA PENGGUNA LOKAL ─────────────────────
     const perbaruiPengguna = async (data: any) => {
+        // Reset data lama dulu sebelum set data user baru
+        setDataDasbor(null);
+        setNotifikasi([]);
+        setKeranjang([]);
         setPengguna((sebelumnya: any) => {
             const dataBaru = { ...sebelumnya, ...data };
-            // Jika data login pertama kali (ada id), simpan id ke AsyncStorage
             if (data.id) {
                 AsyncStorage.setItem('idPengguna', data.id);
             }

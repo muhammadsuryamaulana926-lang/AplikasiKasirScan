@@ -11,10 +11,10 @@ const format_pelanggan = (r) => ({
     notes: r.notes, isActive: r.is_active
 });
 
-// Menangani request GET semua pelanggan aktif
 const tampil_semua_pelanggan = async (req, res) => {
     try {
-        const { rows, total, p, l } = await cari_semua_pelanggan(req.query);
+        const ownerId = req.headers['x-owner-id'];
+        const { rows, total, p, l } = await cari_semua_pelanggan({ ...req.query, ownerId });
         res.json({ success: true, data: rows.map(format_pelanggan), pagination: { total, page: p, limit: l, totalPages: Math.ceil(total / l) } });
     } catch (err) {
         console.error('❌ tampil_semua_pelanggan Error:', err);
@@ -46,22 +46,19 @@ const tampil_satu_pelanggan = async (req, res) => {
     }
 };
 
-// Menangani request POST membuat pelanggan baru
-// Jika ada initialDebt, otomatis membuat catatan hutang awal
 const buat_pelanggan_baru = async (req, res) => {
     try {
+        const ownerId = req.headers['x-owner-id'];
         const id = `cust-${uuidv4().slice(0, 8)}`;
         const { name, phone, address, email, notes, initialDebt } = req.body;
 
-        await simpan_pelanggan_baru(id, { name, phone, address, email, notes });
+        await simpan_pelanggan_baru(id, { name, phone, address, email, notes }, ownerId);
 
-        // Buat hutang awal jika ada, dengan jatuh tempo 7 hari
         if (initialDebt && Number(initialDebt) > 0) {
             const debtId = `debt-${uuidv4().slice(0, 8)}`;
             const dueDate = new Date();
             dueDate.setDate(dueDate.getDate() + 7);
-            await simpan_hutang_awal_pelanggan(debtId, id, name, initialDebt, dueDate.toISOString().split('T')[0]);
-            // Kirim notifikasi hutang baru, error tidak menghentikan proses
+            await simpan_hutang_awal_pelanggan(debtId, id, name, initialDebt, dueDate.toISOString().split('T')[0], ownerId);
             await db.query('INSERT INTO notifications (type, title, message, priority) VALUES (?, ?, ?, ?)',
                 ['debt_reminder', 'Hutang Baru Tercatat', `Pelanggan "${name}" memiliki hutang baru sebesar Rp ${Number(initialDebt).toLocaleString('id-ID')}`, 'high']
             ).catch(e => console.error('Notifikasi gagal:', e));
@@ -70,7 +67,6 @@ const buat_pelanggan_baru = async (req, res) => {
         res.status(201).json({ success: true, data: { id, name, phone } });
     } catch (err) {
         console.error('❌ buat_pelanggan_baru Error:', err);
-        // Berikan pesan khusus jika nomor telepon sudah terdaftar
         if (err.code === 'ER_DUP_ENTRY') return res.status(400).json({ success: false, error: 'Nomor telepon sudah terdaftar. Gunakan nomor lain atau cari pelanggan yang sudah ada.' });
         res.status(500).json({ success: false, error: err.message });
     }

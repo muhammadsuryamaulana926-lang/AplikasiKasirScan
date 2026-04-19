@@ -11,10 +11,10 @@ const format_produk = (r) => ({
     supplier: r.supplier, salesCount: r.sales_count, createdAt: r.created_at
 });
 
-// Menangani request GET semua produk aktif dengan filter dan pagination
 const tampil_semua_produk = async (req, res) => {
     try {
-        const { rows, total, p, l } = await cari_semua_produk(req.query);
+        const ownerId = req.headers['x-owner-id'];
+        const { rows, total, p, l } = await cari_semua_produk({ ...req.query, ownerId });
         res.json({ success: true, data: rows.map(format_produk), pagination: { total, page: p, limit: l, totalPages: Math.ceil(total / l) } });
     } catch (err) {
         console.error('❌ tampil_semua_produk Error:', err);
@@ -22,7 +22,6 @@ const tampil_semua_produk = async (req, res) => {
     }
 };
 
-// Menangani request GET detail satu produk berdasarkan ID
 const tampil_satu_produk = async (req, res) => {
     try {
         const r = await cari_satu_produk(req.params.id);
@@ -33,24 +32,23 @@ const tampil_satu_produk = async (req, res) => {
     }
 };
 
-// Menangani request GET semua kategori produk
 const tampil_semua_kategori = async (req, res) => {
     try {
-        const rows = await cari_semua_kategori();
+        const ownerId = req.headers['x-owner-id'];
+        const rows = await cari_semua_kategori(ownerId);
         res.json({ success: true, data: rows });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 };
 
-// Menangani request POST membuat kategori produk baru
 const buat_kategori_baru = async (req, res) => {
     try {
+        const ownerId = req.headers['x-owner-id'];
         const { name, icon, color } = req.body;
-        // Nama kategori wajib diisi
         if (!name) return res.status(400).json({ success: false, error: 'Nama kategori wajib diisi' });
         const id = `cat-${uuidv4().slice(0, 8)}`;
-        await simpan_kategori_baru(id, { name, icon, color });
+        await simpan_kategori_baru(id, { name, icon, color }, ownerId);
         res.status(201).json({ success: true, data: { id, name } });
     } catch (err) {
         console.error('❌ buat_kategori_baru Error:', err);
@@ -58,15 +56,14 @@ const buat_kategori_baru = async (req, res) => {
     }
 };
 
-// Menangani request POST membuat produk baru
 const buat_produk_baru = async (req, res) => {
     try {
+        const ownerId = req.headers['x-owner-id'];
         const id = `prod-${uuidv4().slice(0, 8)}`;
-        await simpan_produk_baru(id, req.body);
+        await simpan_produk_baru(id, req.body, ownerId);
         res.status(201).json({ success: true, data: { id, name: req.body.name } });
     } catch (err) {
         console.error('❌ buat_produk_baru Error:', err);
-        // Berikan pesan khusus jika barcode sudah dipakai produk lain
         const message = err.code === 'ER_DUP_ENTRY' ? 'Barcode sudah digunakan oleh produk lain' : err.message;
         res.status(500).json({ success: false, error: message });
     }

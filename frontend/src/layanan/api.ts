@@ -1,11 +1,10 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── KONFIGURASI URL DASAR ────────────────────────────────
-// Gunakan IP lokal saat pakai HP fisik, localhost untuk emulator
 const ambilUrlDasar = () => {
     if (Platform.OS === 'android') {
-        // Ganti dengan IP komputer Anda jika menggunakan HP fisik
         return 'http://192.168.100.103:3001/api';
     }
     return 'http://localhost:3001/api';
@@ -15,22 +14,25 @@ const ambilUrlDasar = () => {
 const api = axios.create({
     baseURL: ambilUrlDasar(),
     timeout: 10000,
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
+});
+
+// ─── INTERCEPTOR REQUEST ──────────────────────────────────
+// Otomatis sisipkan x-owner-id di setiap request agar backend
+// tahu data milik siapa yang harus diambil/disimpan
+api.interceptors.request.use(async (config) => {
+    const ownerId = await AsyncStorage.getItem('idPengguna')
+        || await AsyncStorage.getItem('userId');
+    if (ownerId) config.headers['x-owner-id'] = ownerId;
+    return config;
 });
 
 // ─── PENANGANAN ERROR RESPONSE ────────────────────────────
 api.interceptors.response.use(
-    // Jika berhasil, kembalikan response langsung
     response => response,
     error => {
-        if (error.code === 'ECONNABORTED') {
-            console.log('Waktu request habis - server mungkin sedang mati');
-        }
-        if (!error.response) {
-            console.log('Tidak ada koneksi jaringan - mode offline');
-        }
+        if (error.code === 'ECONNABORTED') console.log('Waktu request habis - server mungkin sedang mati');
+        if (!error.response) console.log('Tidak ada koneksi jaringan - mode offline');
         return Promise.reject(error);
     }
 );

@@ -2,11 +2,13 @@ const db = require('../database/db');
 
 // Mengambil semua transaksi dari database dengan filter dan pagination
 const cari_semua_transaksi = async (filters) => {
-    const { search, paymentMethod, status, dateFrom, dateTo, page = 1, limit = 20 } = filters;
+    const { search, paymentMethod, status, dateFrom, dateTo, page = 1, limit = 20, ownerId } = filters;
     const p = parseInt(page), l = parseInt(limit), offset = (p - 1) * l;
 
     let query = 'SELECT * FROM transactions WHERE 1=1';
     let params = [];
+
+    if (ownerId) { query += ' AND owner_id = ?'; params.push(ownerId); }
 
     // Filter pencarian berdasarkan nomor invoice, nama pelanggan, atau kasir
     if (search) { query += ' AND (invoice_number LIKE ? OR customer_name LIKE ? OR cashier LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
@@ -39,12 +41,11 @@ const cari_item_transaksi = async (transactionId) => {
     return rows;
 };
 
-// Menyimpan data transaksi utama ke database (header transaksi)
 const simpan_transaksi = async (connection, data) => {
-    const { id, invoice, customerId, customerName, subtotal, discount, total, paymentMethod, amountPaid, change, cashier, notes } = data;
+    const { id, invoice, customerId, customerName, subtotal, discount, total, paymentMethod, amountPaid, change, cashier, notes, ownerId } = data;
     await connection.query(
-        'INSERT INTO transactions (id, invoice_number, customer_id, customer_name, subtotal, discount, total, payment_method, amount_paid, change_amount, cashier, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, invoice, customerId || null, customerName || 'Pembeli Umum', subtotal, discount, total, paymentMethod, amountPaid, change, cashier, notes]
+        'INSERT INTO transactions (id, invoice_number, customer_id, customer_name, subtotal, discount, total, payment_method, amount_paid, change_amount, cashier, notes, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, invoice, customerId || null, customerName || 'Pembeli Umum', subtotal, discount, total, paymentMethod, amountPaid, change, cashier, notes, ownerId || null]
     );
 };
 

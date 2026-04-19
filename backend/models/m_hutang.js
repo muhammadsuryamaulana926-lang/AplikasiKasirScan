@@ -3,7 +3,7 @@ const db = require('../database/db');
 // Mengambil semua hutang yang belum lunas dengan filter dan pagination
 // Status 'overdue' dihitung otomatis dari tanggal jatuh tempo, bukan dari kolom status
 const cari_semua_hutang = async (filters) => {
-    const { search, status, page = 1, limit = 20 } = filters;
+    const { search, status, page = 1, limit = 20, ownerId } = filters;
     const p = parseInt(page), l = parseInt(limit), offset = (p - 1) * l;
 
     let query = `
@@ -11,6 +11,8 @@ const cari_semua_hutang = async (filters) => {
         CASE WHEN d.status != 'paid' AND d.due_date < CURDATE() THEN 'overdue' ELSE d.status END as current_status
         FROM debts d LEFT JOIN customers c ON d.customer_id = c.id WHERE d.status != 'paid'`;
     let params = [];
+
+    if (ownerId) { query += ' AND d.owner_id = ?'; params.push(ownerId); }
 
     // Filter pencarian berdasarkan nama pelanggan atau deskripsi barang
     if (search) { query += ' AND (d.customer_name LIKE ? OR d.items LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
@@ -45,13 +47,11 @@ const cari_ringkasan_hutang = async () => {
     return rows[0];
 };
 
-// Menyimpan catatan hutang baru ke database
-// Nilai remaining awalnya sama dengan amount karena belum ada pembayaran
 const simpan_hutang_baru = async (data) => {
-    const { id, customerId, customerName, amount, items, dueDate, transactionId, notes } = data;
+    const { id, customerId, customerName, amount, items, dueDate, transactionId, notes, ownerId } = data;
     await db.query(
-        'INSERT INTO debts (id, customer_id, customer_name, amount, remaining, items, due_date, transaction_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, customerId, customerName, amount, amount, items || '', dueDate || null, transactionId || null, notes || null]
+        'INSERT INTO debts (id, customer_id, customer_name, amount, remaining, items, due_date, transaction_id, notes, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, customerId, customerName, amount, amount, items || '', dueDate || null, transactionId || null, notes || null, ownerId || null]
     );
 };
 

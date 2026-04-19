@@ -2,12 +2,13 @@ const db = require('../database/db');
 
 // Mengambil semua pelanggan aktif beserta total hutang masing-masing
 const cari_semua_pelanggan = async (filters) => {
-    const { search, page = 1, limit = 20 } = filters;
+    const { search, page = 1, limit = 20, ownerId } = filters;
     const p = parseInt(page), l = parseInt(limit), offset = (p - 1) * l;
 
-    // Subquery menghitung total hutang yang belum lunas per pelanggan
     let query = `SELECT c.*, (SELECT COALESCE(SUM(remaining), 0) FROM debts WHERE customer_id = c.id AND status != 'paid') as total_debt FROM customers c WHERE c.is_active = 1`;
     let params = [];
+
+    if (ownerId) { query += ' AND c.owner_id = ?'; params.push(ownerId); }
 
     // Filter pencarian berdasarkan nama, telepon, atau alamat
     if (search) { query += ' AND (c.name LIKE ? OR c.phone LIKE ? OR c.address LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
@@ -47,20 +48,18 @@ const cari_hutang_pelanggan = async (customerId) => {
 };
 
 // Menyimpan data pelanggan baru ke database
-const simpan_pelanggan_baru = async (id, data) => {
+const simpan_pelanggan_baru = async (id, data, ownerId) => {
     const { name, phone, address, email, notes } = data;
     await db.query(
-        'INSERT INTO customers (id, name, phone, address, email, notes) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, name || '', phone || '', address || null, email || null, notes || null]
+        'INSERT INTO customers (id, name, phone, address, email, notes, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [id, name || '', phone || '', address || null, email || null, notes || null, ownerId || null]
     );
 };
 
-// Menyimpan hutang awal saat pelanggan baru dibuat dengan initialDebt
-// Jatuh tempo default 7 hari dari tanggal pendaftaran
-const simpan_hutang_awal_pelanggan = async (debtId, customerId, name, initialDebt, dueDate) => {
+const simpan_hutang_awal_pelanggan = async (debtId, customerId, name, initialDebt, dueDate, ownerId) => {
     await db.query(
-        'INSERT INTO debts (id, customer_id, customer_name, amount, remaining, status, due_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [debtId, customerId, name, Number(initialDebt), Number(initialDebt), 'unpaid', dueDate]
+        'INSERT INTO debts (id, customer_id, customer_name, amount, remaining, status, due_date, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [debtId, customerId, name, Number(initialDebt), Number(initialDebt), 'unpaid', dueDate, ownerId || null]
     );
 };
 

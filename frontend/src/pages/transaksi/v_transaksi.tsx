@@ -102,7 +102,7 @@ const TransactionsScreen: React.FC = ({ navigation }: any) => {
                         </Text>
                         <View style={[styles.statusBadge, { backgroundColor: isRefund ? colors.danger + '15' : colors.info + '15' }]}>
                             <Text style={{ fontSize: 10, fontWeight: 'bold', color: isRefund ? colors.danger : colors.info }}>
-                                {item.paymentMethod === 'cash' ? 'TUNAI' : item.paymentMethod === 'e-wallet' ? 'QRIS' : item.paymentMethod.toUpperCase()}
+                                {item.paymentMethod === 'cash' ? 'TUNAI' : (item.paymentMethod === 'qris' || item.paymentMethod === 'e-wallet') ? 'QRIS' : item.paymentMethod.toUpperCase()}
                             </Text>
                         </View>
                     </View>

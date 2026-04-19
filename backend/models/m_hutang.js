@@ -36,14 +36,15 @@ const cari_semua_hutang = async (filters) => {
     return { rows, total, p, l };
 };
 
-// Mengambil ringkasan statistik hutang (total nominal, jumlah overdue, dll)
-const cari_ringkasan_hutang = async () => {
-    const [rows] = await db.query(`
-        SELECT SUM(remaining) as totalDebt,
+const cari_ringkasan_hutang = async (ownerId) => {
+    let query = `SELECT SUM(remaining) as totalDebt,
         SUM(CASE WHEN status != 'paid' AND due_date < CURDATE() THEN 1 ELSE 0 END) as overdueCount,
         SUM(CASE WHEN status = 'unpaid' AND due_date >= CURDATE() THEN 1 ELSE 0 END) as unpaidCount,
         SUM(CASE WHEN status = 'partial' AND due_date >= CURDATE() THEN 1 ELSE 0 END) as partialCount,
-        COUNT(*) as totalRecords FROM debts`);
+        COUNT(*) as totalRecords FROM debts WHERE 1=1`;
+    const params = [];
+    if (ownerId) { query += ' AND owner_id = ?'; params.push(ownerId); }
+    const [rows] = await db.query(query, params);
     return rows[0];
 };
 

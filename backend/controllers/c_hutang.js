@@ -33,10 +33,10 @@ const tampil_semua_hutang = async (req, res) => {
     }
 };
 
-// Menangani request GET ringkasan statistik hutang untuk halaman hutang
 const tampil_ringkasan_hutang = async (req, res) => {
     try {
-        const s = await cari_ringkasan_hutang();
+        const ownerId = req.headers['x-owner-id'];
+        const s = await cari_ringkasan_hutang(ownerId);
         res.json({
             success: true,
             data: {

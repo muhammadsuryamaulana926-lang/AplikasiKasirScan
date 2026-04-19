@@ -1,20 +1,17 @@
 const db = require('../database/db');
 
 // Mengambil semua data yang dibutuhkan halaman dasbor dalam satu fungsi
-const cari_data_dasbor = async () => {
-    // Ringkasan penjualan 7 hari terakhir dari view database
-    const [stats] = await db.query('SELECT * FROM v_dashboard_summary ORDER BY date DESC LIMIT 7');
-    // Jumlah produk yang stoknya di bawah minimum
-    const [lowStock] = await db.query('SELECT COUNT(*) as count FROM v_low_stock_products');
-    // Jumlah produk yang akan expired dalam 30 hari ke depan
-    const [expiring] = await db.query('SELECT COUNT(*) as count FROM products WHERE expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND is_active = 1');
-    // Total nominal dan jumlah hutang yang belum lunas
-    const [debts] = await db.query("SELECT SUM(remaining) as total, COUNT(*) as count FROM debts WHERE status != 'paid'");
-    // 5 pelanggan dengan total belanja terbesar
-    const [topCustomers] = await db.query('SELECT id, name, total_spent FROM customers WHERE is_active = 1 ORDER BY total_spent DESC LIMIT 5');
-    // 5 transaksi terbaru
-    const [recentTrxRows] = await db.query('SELECT id, invoice_number, customer_name, total, created_at FROM transactions ORDER BY created_at DESC LIMIT 5');
-    // 10 notifikasi yang belum dibaca
+const cari_data_dasbor = async (ownerId) => {
+    const params = ownerId ? [ownerId] : [];
+    const ownerWhere = ownerId ? ' AND owner_id = ?' : '';
+    const ownerWhereC = ownerId ? ' AND c.owner_id = ?' : '';
+
+    const [stats] = await db.query(`SELECT * FROM v_dashboard_summary WHERE 1=1${ownerWhere} ORDER BY date DESC LIMIT 7`, params);
+    const [lowStock] = await db.query(`SELECT COUNT(*) as count FROM v_low_stock_products WHERE 1=1${ownerWhere}`, params);
+    const [expiring] = await db.query(`SELECT COUNT(*) as count FROM products WHERE expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND is_active = 1${ownerWhere}`, params);
+    const [debts] = await db.query(`SELECT SUM(remaining) as total, COUNT(*) as count FROM debts WHERE status != 'paid'${ownerWhere}`, params);
+    const [topCustomers] = await db.query(`SELECT id, name, total_spent FROM customers c WHERE is_active = 1${ownerWhereC} ORDER BY total_spent DESC LIMIT 5`, params);
+    const [recentTrxRows] = await db.query(`SELECT id, invoice_number, customer_name, total, created_at FROM transactions WHERE 1=1${ownerWhere} ORDER BY created_at DESC LIMIT 5`, params);
     const [notifications] = await db.query('SELECT * FROM notifications WHERE is_read = 0 ORDER BY created_at DESC LIMIT 10');
 
     return { stats, lowStock: lowStock[0].count, expiring: expiring[0].count, debts: debts[0], topCustomers, recentTrxRows, notifications };

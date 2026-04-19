@@ -4,7 +4,8 @@ const { cari_data_dasbor, cari_item_transaksi_dasbor, cari_semua_notifikasi, tan
 // Menggabungkan semua data ringkasan yang dibutuhkan halaman dasbor
 const tampil_data_dasbor = async (req, res) => {
     try {
-        const { stats, lowStock, expiring, debts, topCustomers, recentTrxRows, notifications } = await cari_data_dasbor();
+        const ownerId = req.headers['x-owner-id'];
+        const { stats, lowStock, expiring, debts, topCustomers, recentTrxRows, notifications } = await cari_data_dasbor(ownerId);
 
         // Untuk setiap transaksi terbaru, ambil juga item yang dibeli
         const recentTransactions = await Promise.all(recentTrxRows.map(async (t) => ({

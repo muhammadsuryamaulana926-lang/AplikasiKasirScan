@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, ScrollView, Image, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react-native';
-import { gunakanApp } from '../../penyimpanan/app_context';
+import { gunakanApp } from '../../penyimpanan/pusat_data_aplikasi';
 import Button from '../../komponen/antarmuka/c_tombol';
 import Modal from '../../komponen/antarmuka/c_modal';
 import { Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '../../tema';

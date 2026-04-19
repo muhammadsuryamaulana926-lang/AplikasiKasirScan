@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Dimensions, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Mail, Lock, Eye, EyeOff, User, Phone, ArrowLeft, AlertCircle } from 'lucide-react-native';
-import { gunakanApp } from '../../penyimpanan/app_context';
+import { gunakanApp } from '../../penyimpanan/pusat_data_aplikasi';
 import Button from '../../komponen/antarmuka/c_tombol';
 import Modal from '../../komponen/antarmuka/c_modal';
 import { Spacing, FontSize, FontWeight, BorderRadius, Shadow } from '../../tema';

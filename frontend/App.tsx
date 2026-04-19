@@ -23,7 +23,7 @@ import {
 } from 'lucide-react-native';
 
 // Penyimpanan state global
-import { AppProvider, gunakanApp } from './src/penyimpanan/app_context';
+import { AppProvider, gunakanApp } from './src/penyimpanan/pusat_data_aplikasi';
 
 // Halaman-halaman aplikasi
 import DashboardScreen from './src/pages/lainnya/v_dasbor';
@@ -515,7 +515,6 @@ const NavigationWrapper = () => {
             ) : (
                 <RootStack.Navigator screenOptions={{ headerShown: false }}>
                     <RootStack.Screen name="MainTabs" component={MainTabsNavigator} />
-                    
                 </RootStack.Navigator>
             )}
         </NavigationContainer>

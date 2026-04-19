@@ -132,7 +132,7 @@ const TransactionsScreen: React.FC = ({ navigation }: any) => {
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={sedangRefresh} tarikUntukRefresh={tarikUntukRefresh} colors={[colors.primary]} />}
+                    refreshControl={<RefreshControl refreshing={sedangRefresh} onRefresh={tarikUntukRefresh} colors={[colors.primary]} />}
                 />
             )}
 

@@ -142,7 +142,7 @@ const CustomersScreen: React.FC = ({ navigation }: any) => {
                     keyExtractor={item => item.id}
                     contentContainerStyle={[styles.listContent, { paddingBottom: FLOAT_BOTTOM + 60 }]}
                     showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={sedangRefresh} tarikUntukRefresh={tarikUntukRefresh} colors={[colors.primary]} />}
+                    refreshControl={<RefreshControl refreshing={sedangRefresh} onRefresh={tarikUntukRefresh} colors={[colors.primary]} />}
                 />
             )}
 

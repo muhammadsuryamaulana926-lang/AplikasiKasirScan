@@ -132,7 +132,7 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={sedangRefresh} tarikUntukRefresh={tarikUntukRefresh} colors={[colors.primary]} />}
+                refreshControl={<RefreshControl refreshing={sedangRefresh} onRefresh={tarikUntukRefresh} colors={[colors.primary]} />}
                 showsVerticalScrollIndicator={false}
             >
                 {/* Greeting Area handled by Header now */}

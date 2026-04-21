@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ─── KONFIGURASI URL DASAR ────────────────────────────────
 const ambilUrlDasar = () => {
     if (Platform.OS === 'android') {
-        return 'http://192.168.100.103:3001/api';
+        return 'http://10.218.103.33:3001/api';
     }
     return 'http://localhost:3001/api';
 };

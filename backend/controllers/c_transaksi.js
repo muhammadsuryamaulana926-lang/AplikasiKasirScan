@@ -1,6 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../database/db');
-const { cari_semua_transaksi, cari_item_transaksi, simpan_transaksi, simpan_item_transaksi } = require('../models/m_transaksi');
+const { cari_semua_transaksi, cari_item_transaksi, cari_satu_transaksi, simpan_transaksi, simpan_item_transaksi, refund_data_transaksi, kembalikan_stok } = require('../models/m_transaksi');
 
 const tampil_semua_transaksi = async (req, res) => {
     try {
@@ -34,8 +34,6 @@ const tampil_semua_transaksi = async (req, res) => {
     }
 };
 
-// Menangani request POST checkout kasir
-// Menggunakan database transaction agar semua data tersimpan atau tidak sama sekali
 const buat_transaksi_baru = async (req, res) => {
     const connection = await db.getConnection();
     try {
@@ -76,4 +74,30 @@ const buat_transaksi_baru = async (req, res) => {
     }
 };
 
-module.exports = { tampil_semua_transaksi, buat_transaksi_baru };
+const refund_transaksi = async (req, res) => {
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const transaksi = await cari_satu_transaksi(req.params.id);
+        if (!transaksi) return res.status(404).json({ success: false, error: 'Transaksi tidak ditemukan' });
+        if (transaksi.status === 'refunded') return res.status(400).json({ success: false, error: 'Transaksi sudah di-refund sebelumnya' });
+
+        // Update status transaksi jadi refunded
+        await refund_data_transaksi(connection, req.params.id);
+
+        // Kembalikan stok semua produk yang ada di transaksi ini
+        await kembalikan_stok(connection, req.params.id);
+
+        await connection.commit();
+        res.json({ success: true, message: 'Transaksi berhasil di-refund dan stok dikembalikan' });
+    } catch (err) {
+        await connection.rollback();
+        console.error('❌ refund_transaksi Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        connection.release();
+    }
+};
+
+module.exports = { tampil_semua_transaksi, buat_transaksi_baru, refund_transaksi };

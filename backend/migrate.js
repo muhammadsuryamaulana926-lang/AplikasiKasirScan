@@ -36,6 +36,22 @@ async function migrate() {
         `);
         console.log('✅ OTPs table ready.');
 
+        // Update view v_dashboard_summary agar filter per user_id
+        await db.query(`
+            CREATE OR REPLACE VIEW v_dashboard_summary AS
+            SELECT 
+                DATE(created_at) as date,
+                user_id as owner_id,
+                COUNT(*) as total_transactions,
+                SUM(total) as total_revenue,
+                SUM(total - subtotal + discount) as total_tax,
+                COUNT(DISTINCT customer_id) as unique_customers
+            FROM transactions
+            WHERE status = 'completed'
+            GROUP BY DATE(created_at), user_id
+        `);
+        console.log('✅ View v_dashboard_summary updated.');
+
         console.log('🎉 Migration successful.');
         process.exit(0);
     } catch (err) {

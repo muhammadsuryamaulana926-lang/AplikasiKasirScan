@@ -7,7 +7,7 @@ const cari_data_dasbor = async (ownerId) => {
     const ownerWhereC = ownerId ? ' AND c.owner_id = ?' : '';
 
     const [stats] = await db.query(`SELECT * FROM v_dashboard_summary WHERE 1=1${ownerWhere} ORDER BY date DESC LIMIT 7`, params);
-    const [lowStock] = await db.query(`SELECT COUNT(*) as count FROM v_low_stock_products WHERE 1=1${ownerId ? ' AND owner_id = ?' : ''}`, params);
+    const [lowStock] = await db.query(`SELECT COUNT(*) as count FROM v_low_stock_products WHERE 1=1${ownerWhere}`, params);
     const [expiring] = await db.query(`SELECT COUNT(*) as count FROM products WHERE expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND is_active = 1${ownerWhere}`, params);
     const [debts] = await db.query(`SELECT SUM(remaining) as total, COUNT(*) as count FROM debts WHERE status != 'paid'${ownerWhere}`, params);
     const [totalProducts] = await db.query(`SELECT COUNT(*) as count FROM products WHERE is_active = 1${ownerWhere}`, params);

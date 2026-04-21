@@ -41,6 +41,33 @@ const cari_item_transaksi = async (transactionId) => {
     return rows;
 };
 
+// Mengambil satu transaksi berdasarkan ID
+const cari_satu_transaksi = async (id) => {
+    const [rows] = await db.query('SELECT * FROM transactions WHERE id = ?', [id]);
+    return rows[0];
+};
+
+// Memperbarui status transaksi menjadi refunded
+const refund_data_transaksi = async (connection, id) => {
+    await connection.query("UPDATE transactions SET status = 'refunded' WHERE id = ?", [id]);
+};
+
+// Mengembalikan stok produk setelah refund
+const kembalikan_stok = async (connection, transactionId) => {
+    const [items] = await connection.query(
+        'SELECT product_id, qty FROM transaction_items WHERE transaction_id = ?',
+        [transactionId]
+    );
+    for (const item of items) {
+        if (item.product_id) {
+            await connection.query(
+                'UPDATE products SET stock = stock + ?, sales_count = sales_count - ? WHERE id = ?',
+                [item.qty, item.qty, item.product_id]
+            );
+        }
+    }
+};
+
 const simpan_transaksi = async (connection, data) => {
     const { id, invoice, customerId, customerName, subtotal, discount, total, paymentMethod, amountPaid, change, cashier, notes, ownerId } = data;
     await connection.query(
@@ -58,4 +85,4 @@ const simpan_item_transaksi = async (connection, item, transactionId, itemId) =>
     );
 };
 
-module.exports = { cari_semua_transaksi, cari_item_transaksi, simpan_transaksi, simpan_item_transaksi };
+module.exports = { cari_semua_transaksi, cari_item_transaksi, cari_satu_transaksi, simpan_transaksi, simpan_item_transaksi, refund_data_transaksi, kembalikan_stok };

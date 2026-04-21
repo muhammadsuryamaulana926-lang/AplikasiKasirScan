@@ -121,9 +121,15 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
     );
 
     const summary = dashboardData?.summary || [];
+    // Ambil data hari ini saja (index 0 = hari terbaru)
+    const hariIni = summary.find((s: any) => {
+        const tgl = new Date(s.date);
+        const sekarang = new Date();
+        return tgl.toDateString() === sekarang.toDateString();
+    });
     const stats = {
-        revenue: summary.reduce((acc: number, s: any) => acc + (s.revenue || 0), 0),
-        transactions: summary.reduce((acc: number, s: any) => acc + (s.transactions || 0), 0),
+        revenue: hariIni?.revenue || 0,
+        transactions: hariIni?.transactions || 0,
         products: dashboardData?.totalProducts || 0,
         lowStock: dashboardData?.lowStockCount || 0,
     };
@@ -140,19 +146,17 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
                 {/* Metrics Grid */}
                 <View style={styles.metricsGrid}>
                     <MetricCard
-                        title="Pendapatan"
+                        title="Pendapatan Hari Ini"
                         value={formatRupiah(stats.revenue)}
                         icon={<Wallet />}
                         color={colors.primary}
-                        trend={12} // Tren sementara
                         index={0}
                     />
                     <MetricCard
-                        title="Transaksi"
+                        title="Transaksi Hari Ini"
                         value={stats.transactions.toString()}
                         icon={<ShoppingBag />}
                         color={colors.accent}
-                        trend={-5} // Tren sementara
                         index={1}
                     />
                     <MetricCard
